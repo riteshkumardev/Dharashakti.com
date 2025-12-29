@@ -1,0 +1,6 @@
+<<<<<<< HEAD
+node_modules/
+=======
+node_modules
+.env
+>>>>>>> e3ecdf1 (Initial backend commit with MySQL and Node.js)

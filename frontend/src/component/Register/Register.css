@@ -1,0 +1,74 @@
+/* 🚫 No Scroll Body Settings */
+.register-wide {
+  max-width: 900px; /* Width thodi badha di taaki horizontal space use ho */
+  margin: 20px auto;
+  padding: 20px 30px;
+  background: #ffffff;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  height: calc(82vh - 90px); /* Screen ki height ke hisaab se fit */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden; /* Scroll band karne ke liye */
+}
+
+.register-wide h2 {
+  margin-bottom: 15px;
+  font-size: 24px;
+  color: #1e293b;
+}
+
+/* 🧊 Compact Grid - 3 Columns for No-Scroll */
+.reg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns banaye taaki height kam ho jaye */
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.reg-grid input {
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  width: 100%;
+}
+
+/* 📸 Compact Photo Upload */
+.photo-upload {
+  grid-column: span 3; /* Teeno columns ki jagah lega */
+  padding: 10px;
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.photo-upload label {
+  margin-bottom: 0;
+  min-width: 100px;
+  font-size: 12px;
+}
+
+/* 🚀 Small Button */
+.register-btn-main {
+  padding: 12px;
+  font-size: 15px;
+  margin-top: 10px;
+}
+
+/* 📱 Responsive for Tablet/Small Screen */
+@media (max-width: 768px) {
+  .register-wide {
+    height: auto;
+    overflow-y: auto; /* Sirf mobile par scroll chalega */
+  }
+  .reg-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .photo-upload {
+    grid-column: span 2;
+  }
+}

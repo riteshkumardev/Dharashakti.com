@@ -1,0 +1,158 @@
+/* --- 1. Screen View Styling --- */
+.reports-full-screen {
+    font-size: small;
+    padding: 20px;
+    background: #ffffff !important;
+    min-height: 100vh;
+}
+
+.report-controls {
+    font-size: small;
+    background: #fff;
+    /* padding: 25px; */
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    margin-top: 0px;
+    /* margin-bottom: 20px; */
+}
+
+.report-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+/* --- 2. Table Professional Styling (Black & White Only) --- */
+.modern-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    /* margin-top: 20px; */
+    background: #fff !important;
+}
+
+.modern-report-table th {
+    background: #f2f2f2 !important; 
+    color: #000 !important;
+    border: 1px solid #000 !important; /* Sharp black border for clear print */
+    padding: 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.modern-report-table td {
+    border: 1px solid #000 !important;
+    padding: 10px;
+    font-size: 13px;
+    color: #000 !important;
+}
+
+.grand-total-row td {
+    background: #f2f2f2 !important;
+    font-weight: bold;
+    border-top: 2px solid #000 !important;
+}
+
+/* --- 3. PRINT ENGINE (A4 Fix & No Blue Tint) --- */
+@media print {
+    @page {
+        size: A4;
+        margin: 15mm !important; /* Proper margin to prevent cutting [cite: 12] */
+    }
+
+    /* Force Remove Browser UI (URL, Date) and blue tints */
+    html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide Navigation & Buttons  */
+    nav, .navbar, .sidebar, .no-print, .report-controls, .report-actions, header, footer {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
+
+    .reports-full-screen {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .printable-invoice {
+        display: block !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: none !important; /* Removes blue/grey tint */
+        background: #fff !important;
+    }
+
+    /* Page Break Logic: Table aur Signature ko cutne se bachayein  */
+    table { 
+        page-break-inside: auto; 
+    }
+    tr { 
+        page-break-inside: avoid !important; 
+        page-break-after: auto !important; 
+    }
+    thead { 
+        display: table-header-group !important; 
+    }
+
+    /* Invoice Header Styling */
+    .invoice-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #000;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
+    }
+
+    .company-info h1 {
+        font-size: 24pt !important;
+        font-weight: bold !important;
+        margin: 0;
+        color: #000 !important;
+    }
+
+    /* Signature Section Fix: Table ke niche chipka rahega [cite: 9, 11] */
+    .invoice-footer {
+        margin-top: 40px;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        page-break-inside: avoid !important; /* Prevents signature from going to page 2 [cite: 12] */
+    }
+
+    .signature-box {
+     
+        text-align: center;
+        width: 250px;
+    }
+
+    .signature-box p {
+        
+        margin: 5px 0;
+        font-size: 11pt;
+        color: #000 !important;
+    }
+}
+@media print {
+    @page {
+        size: A4;
+        /* Isse browser ke default header/footer (React App, URL) dab jayenge */
+        margin: 0 !important; 
+    }
+
+    body {
+        /* Content ko manually margin dena taaki text kinaro se na kate */
+        margin: 1.5cm !important; 
+    }
+}
+.signboauthsign {
+    justify-content: space-between !important;
+
+}

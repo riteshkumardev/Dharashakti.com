@@ -1,0 +1,212 @@
+/* 🏦 Main Ledger Dashboard */
+.ledger-main-wrapper {
+  display: flex;
+  gap: 20px;
+  height: calc(85vh - 150px);
+  padding: 10px;
+
+  background: #f1f5f9;
+}
+
+/* 👥 Staff Selection Panel (Left) */
+.ledger-staff-list {
+  flex: 0.8;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ledger-staff-list h3 {
+  padding: 15px;
+  background: #1e293b;
+  color: white;
+  margin: 0;
+  font-size: 16px;
+  text-align: center;
+}
+
+.staff-card-item {
+  padding: 15px;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.staff-card-item:hover { background: #f8fafc; }
+.staff-card-item.active-ledger {
+  background: #eff6ff;
+  border-left: 6px solid #2563eb;
+}
+
+/* 📄 Detailed Ledger View (Right) */
+.ledger-detail-view {
+  flex: 2.2;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 📅 Attendance Summary Box */
+.attendance-summary-bar {
+  display: flex;
+  justify-content: space-around;
+  padding: 15px;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.summary-item {
+  text-align: center;
+  flex: 1;
+}
+
+.summary-item span { display: block; font-size: 12px; color: #64748b; font-weight: bold; }
+.summary-item b { font-size: 18px; }
+.summary-item.green b { color: #16a34a; }
+.summary-item.red b { color: #dc2626; }
+
+/* 💰 Salary Calculation Stats */
+.ledger-stats-row {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+}
+
+.stat-pill {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid transparent;
+}
+
+.stat-pill.total-salary { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.stat-pill.balance-due { background: #f0f9ff; color: #075985; border-color: #bae6fd; }
+.stat-pill.total-advance { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.stat-pill.final-pay { background: #faf5ff; color: #6b21a8; border-color: #e9d5ff; border-width: 2px; }
+
+.stat-pill b { display: block; font-size: 20px; margin-top: 5px; }
+
+/* 📥 Advance Entry Form */
+.advance-entry-box {
+  padding: 15px 20px;
+  background: #fff;
+  border-top: 1px solid #eee;
+}
+
+.advance-form-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.advance-form-grid input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.save-btn-new {
+  background: #16a34a;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 📜 Ledger Table Container */
+.ledger-table-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 15px;
+}
+
+.ledger-table-container::-webkit-scrollbar { width: 5px; }
+.ledger-table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.amount-text-red { color: #dc2626; font-weight: bold; }
+
+
+/* Calendar Modal Styling */
+.cal-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 1000;
+}
+
+.cal-modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%; max-width: 400px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.cal-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 15px;
+}
+
+.cal-close-btn {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+}
+
+/* Calendar Tile Colors */
+.cal-present {
+  background-color: #dcfce7 !important; /* light green */
+  color: #166534 !important;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+.cal-absent {
+  background-color: #fee2e2 !important; /* light red */
+  color: #991b1b !important;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+.cal-legend {
+  display: flex; gap: 20px; justify-content: center; margin-top: 15px;
+}
+
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 14px; }
+.leg-box { width: 15px; height: 15px; border-radius: 3px; }
+.leg-box.green { background: #22c55e; }
+.leg-box.red { background: #ef4444; }
+
+/* Clickable summary bar */
+.attendance-summary-bar {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  transition: 0.2s;
+}
+
+.attendance-summary-bar:hover {
+  background: #f1f5f9;
+}
+
+.view-btn-small {
+  font-size: 12px;
+  background: #3b82f6;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
