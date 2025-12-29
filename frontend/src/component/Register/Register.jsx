@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios"; // Firebase hatakar Axios laya gaya
+import axios from "axios";
 import "./Register.css";
 
 // 🏗️ Core Components Import
@@ -16,93 +16,134 @@ function Register() {
     password: "",
     photo: ""
   });
-  
-  // ⏳ Feedback States
+
+  // ⏳ UI States
   const [loading, setLoading] = useState(false);
   const [generatedId, setGeneratedId] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
   const navigate = useNavigate();
 
-  // 🔔 Snackbar Helper
+  // 🔔 Snackbar Trigger
   const showMsg = (msg, type = "success") => {
     setSnackbar({ open: true, message: msg, severity: type });
   };
 
-  // --- 1. Image to Base64 Converter ---
+  // 📸 Convert image to Base64
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, photo: reader.result });
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setFormData({ ...formData, photo: reader.result });
+    reader.readAsDataURL(file);
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // 🚀 Register Function (Final Fixed)
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
-      // --- 🚀 NODE.JS BACKEND CALL ---
-      const response = await axios.post('http://localhost:5000/api/register-admin', formData);
+  if (!formData.name || !formData.phone || !formData.designation) {
+    return showMsg("Required fields missing: name, phone, role", "error");
+  }
 
-      if (response.data.success) {
-        setGeneratedId(response.data.employeeId); // Backend se generate hokar aayi ID
-        showMsg("🎉 Admin Registration Successful!", "success");
-      }
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || "Registration failed. Try again.";
-      showMsg("Error: " + errorMsg, "error");
-    } finally {
-      setLoading(false);
-    }
+  const payload = {
+    name: formData.name,
+    phone: formData.phone,
+    role: formData.designation, // role fix
+    fatherName: formData.fatherName,
+    emergency: formData.emergency,
+    aadhar: formData.aadhar,
+    salary: formData.salary,
+    bankName: formData.bankName,
+    accountNumber: formData.accountNumber,
+    ifsc: formData.ifsc,
+    joinDate: formData.joinDate,
+    address: formData.address,
+    password: formData.password,
+    photo: formData.photo || null,
   };
+
+  try {
+    const res = await axios.post("http://localhost:5000/api/employee/register", payload);
+
+    if (res.data.success) {
+      showMsg(`Employee Added! Login ID: ${res.data.employeeId}`, "success");
+    } else {
+      showMsg(res.data.message, "error");
+    }
+
+  } catch (err) {
+    showMsg(err.response?.data?.message || "Registration Error", "error");
+  }
+};
+
+
 
   return (
     <div className="login-box register-wide">
       {loading && <Loader />}
 
       <h2>System Admin Registration</h2>
-      
+
+      {/* When ID not generated, show form */}
       {!generatedId ? (
-        <form onSubmit={handleRegister}>
+        <form onSubmit={handleSubmit}>
           <div className="reg-grid">
-            <input type="text" placeholder="Full Name" onChange={(e)=>setFormData({...formData, name: e.target.value})} required disabled={loading} />
-            <input type="email" placeholder="Email Address" onChange={(e)=>setFormData({...formData, email: e.target.value})} required disabled={loading} />
-            <input type="number" placeholder="Phone Number" onChange={(e)=>setFormData({...formData, phone: e.target.value})} required disabled={loading} />
-            <input type="number" placeholder="Aadhar Number" onChange={(e)=>setFormData({...formData, aadhar: e.target.value})} required disabled={loading} />
-            <input type="password" placeholder="Create Password" onChange={(e)=>setFormData({...formData, password: e.target.value})} required disabled={loading} />
-            
+            <input type="text" placeholder="Full Name"
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required disabled={loading}
+            />
+            <input type="email" placeholder="Email Address"
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required disabled={loading}
+            />
+            <input type="number" placeholder="Phone Number"
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              required disabled={loading}
+            />
+            <input type="number" placeholder="Aadhar Number"
+              onChange={(e) => setFormData({ ...formData, aadhar: e.target.value })}
+              required disabled={loading}
+            />
+            <input type="password" placeholder="Create Password"
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required disabled={loading}
+            />
+
             <div className="photo-upload">
               <label>Profile Photo:</label>
-              <input type="file" accept="image/*" onChange={handlePhotoChange} required disabled={loading} />
+              <input type="file" accept="image/*"
+                onChange={handlePhotoChange}
+                required disabled={loading}
+              />
             </div>
           </div>
 
-          <button type="submit" disabled={loading} className="register-btn-main">
+          <button type="submit" className="register-btn-main" disabled={loading}>
             {loading ? "Generating Secure ID..." : "Register as Admin"}
           </button>
         </form>
       ) : (
+        // When ID generated, show success card
         <div className="success-card">
-          <h3 style={{color: 'green'}}>Registration Complete!</h3>
+          <h3 style={{ color: 'green' }}>Registration Complete!</h3>
           <div className="id-display-box">
             <span>Your Login ID:</span>
             <h1>{generatedId}</h1>
           </div>
-          <p>Use this 8-digit ID to login to your dashboard.</p>
-          <button onClick={() => navigate("/login")} className="login-now-btn">Go to Login</button>
+          <p>Use this ID to login to your dashboard.</p>
+          <button className="login-now-btn" onClick={() => navigate("/login")}>
+            Go to Login
+          </button>
         </div>
       )}
 
-      <CustomSnackbar 
-        open={snackbar.open} 
-        message={snackbar.message} 
-        severity={snackbar.severity} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })} 
+      {/* Snackbar Message */}
+      <CustomSnackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       />
     </div>
   );

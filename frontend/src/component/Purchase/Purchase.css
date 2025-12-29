@@ -91,22 +91,31 @@ input:focus, .styled-select:focus {
 }
 /* Container and Header */
 /* 🔹 Layout (Consistent with Sales & Stock) */
+/* ===========================
+   🌍 TABLE LAYOUT FIX
+=========================== */
 .table-container-wide {
-  width: 98%;
-  margin: 10px auto;
+  width: 100%;
   display: flex;
   justify-content: center;
+  padding: 20px 0;
 }
 
 .table-card-wide {
-  background: #ffffff;
-  width: 100%;
+  width: 95%;
   max-width: 1400px;
+  margin: auto;
+  transform: scale(1);          /* zoom reset */
+  transform-origin: center;     /* center lock */
+  background: #ffffff;
   padding: 20px 25px;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
+/* ===========================
+   📌 HEADER + SEARCH
+=========================== */
 .table-header-row {
   display: flex;
   justify-content: space-between;
@@ -118,42 +127,34 @@ input:focus, .styled-select:focus {
 
 .table-title {
   font-size: 18px;
-  color: #134e4a; /* Agro Theme Dark Green */
+  color: #134e4a;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
 
-/* 🔍 Search Box Styling */
 .search-wrapper {
-  position: relative;
   width: 320px;
 }
-
 .table-search-box {
   width: 100%;
-  padding: 9px 15px 9px 38px;
+  padding: 9px 15px;
   border: 1px solid #d1d5db;
   border-radius: 20px;
   font-size: 14px;
-  outline: none;
   background: #f9fafb;
 }
-
 .table-search-box:focus {
   border-color: #10b981;
-  background: #fff;
+  background: white;
 }
 
-.search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-/* 📊 Table Core Styles */
+/* ===========================
+   📊 TABLE CORE
+=========================== */
 .modern-sales-table {
   width: 100%;
+  min-width: 1200px;        /* table squeeze nahi hoga */
+  table-layout: fixed;      /* column width stable */
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -162,7 +163,6 @@ input:focus, .styled-select:focus {
   background: #f8fafc;
   color: #475569;
   font-weight: 700;
-  text-align: left;
   padding: 14px 10px;
   border-bottom: 2px solid #e2e8f0;
   white-space: nowrap;
@@ -172,62 +172,64 @@ input:focus, .styled-select:focus {
   padding: 12px 10px;
   border-bottom: 1px solid #f1f5f9;
   color: #1e293b;
-}
-
-.modern-sales-table tr:hover {
-  background-color: #f0fdf4; /* Light Agro Green Hover */
-}
-
-/* 🔹 Specific Data Styling */
-.bill-tag {
-  background: #eff6ff;
-  color: #2563eb;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-weight: bold;
-}
-
-.unit-badge {
-  background: #f1f5f9;
-  color: #475569;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-}
-
-.cust-name-cell { font-weight: 600; }
-.bold-cell { font-weight: 800; }
-.success-text { color: #16a34a; font-weight: 700; }
-.danger-text { color: #dc2626; font-weight: 700; }
-
-.remarks-text {
-  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #64748b;
 }
 
-/* ⚙️ Action Buttons */
-.action-btns-cell {
+/* ===========================
+   🖊 EDIT MODE FIX
+=========================== */
+.modern-sales-table input,
+.modern-sales-table select {
+  width: 100%;
+  max-width: 120px;
+  padding: 4px 6px;
+  font-size: 13px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.active-edit {
+  background: #e9fdf3 !important;
+  border-left: 4px solid #10b981;
+}
+
+/* ===========================
+   🎛 ACTION BUTTONS
+=========================== */
+.modern-sales-table td:last-child {
   display: flex;
-  gap: 10px;
+  justify-content: center;
+  gap: 6px;
+}
+
+.save-btn-ui, .cancel-btn-ui {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  font-size: 14px;
+  border-radius: 6px;
 }
 
 .row-edit-btn, .row-delete-btn {
-  background: none;
   border: 1px solid #e2e8f0;
-  cursor: pointer;
+  background: none;
   padding: 5px;
   border-radius: 5px;
-  transition: 0.2s;
+  cursor: pointer;
 }
-
 .row-edit-btn:hover { background: #fffbeb; border-color: #f59e0b; }
 .row-delete-btn:hover { background: #fee2e2; border-color: #ef4444; }
 
+/* ===========================
+   📭 NO RECORDS
+=========================== */
 .no-records-box {
   padding: 40px;
   text-align: center;
   color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
 }

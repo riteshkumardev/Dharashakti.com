@@ -307,3 +307,71 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Dharashakti Server running on port ${PORT}`);
 });
+
+
+
+
+// EMPLOYEE REGISTER API
+app.post("/api/employee/register", async (req, res) => {
+  const { name, phone, role } = req.body;
+  if (!name || !phone || !role) {
+    return res.status(400).json({success:false, message:"Required fields missing: name, phone, role"});
+  }
+
+  const employeeId = Math.floor(10000000 + Math.random() * 90000000);
+  await db.query(
+    "INSERT INTO employees (employee_id, name, phone, role) VALUES (?,?,?,?)",
+    [employeeId, name, phone, role]
+  );
+
+  res.json({ success: true, employeeId });
+});
+
+
+
+
+
+
+
+
+
+
+
+// EMPLOYEE LIST API
+app.get("/api/employees", async (req, res) => {
+  const db = require("./db");
+
+  try {
+    const [rows] = await db.query("SELECT * FROM employees ORDER BY id DESC");
+    res.json({ success: true, employees: rows });
+  } catch (err) {
+    console.error("Fetch Employee Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+app.get("/api/users/status/:id", async (req, res) => {
+  const db = require("./db");
+  const userId = req.params.id;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT employee_id, name, role FROM admins WHERE employee_id = ?",
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      user: rows[0],
+      status: "active"
+    });
+
+  } catch (err) {
+    console.error("Status Check Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+})
+

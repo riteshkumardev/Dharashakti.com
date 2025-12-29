@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import "./Stock.css";
 import axios from "axios";
-import Alert from "../Core_Component/Alert/Alert"; 
 import Loader from '../Core_Component/Loader/Loader';
+import CustomSnackbar from "../Core_Component/Snackbar/CustomSnackbar"; // ⭐ Snackbar import
 
 const StockTable = ({ role }) => {
 
@@ -13,38 +13,38 @@ const StockTable = ({ role }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
-  const [alertData, setAlertData] = useState({
-    show: false, title: "", message: "", type: "info",
+
+  // ⭐ Snackbar State
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
   });
 
-  const showAlert = (title, message) =>
-    setAlertData({ show: true, title, message });
+  const showMsg = (msg, type="success") => {
+    setSnackbar({ open:true, message:msg, severity:type });
+    setTimeout(()=> setSnackbar(s=>({...s,open:false})), 2500);
+  };
 
-  const closeAlert = () =>
-    setAlertData((prev) => ({ ...prev, show: false }));
-
-  // 🚀 FETCH STOCK LIST (MYSQL)
+  // 🚀 FETCH STOCK LIST
   useEffect(() => {
     const fetchStock = async () => {
       try {
         const res = await axios.get("http://localhost:5000/api/stocks");
-        console.log(res,"res Stock table data");
-        
-      setStocks(res.data.stock || []);
+        setStocks(res.data.stock || []);
         setLoading(false);
       } catch (error) {
         console.error("Stock fetch error:", error);
+        showMsg("❌ Server Error!", "error");
         setLoading(false);
       }
     };
     fetchStock();
   }, []);
 
-
-
   // ✏️ START EDIT
   const startEdit = (stock) => {
-    if (!isAuthorized) return showAlert("Denied ❌","Aapke paas edit karne ki permission nahi hai.");
+    if (!isAuthorized) return showMsg("❌ Permission denied!", "error");
     setEditId(stock.id);
     setEditData({ ...stock });
   };
@@ -55,7 +55,7 @@ const StockTable = ({ role }) => {
     setEditData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 💾 SAVE UPDATE (MYSQL PUT)
+  // 💾 SAVE UPDATE
   const handleSave = async () => {
     if (!isAuthorized) return;
     try {
@@ -64,25 +64,25 @@ const StockTable = ({ role }) => {
         quantity: Number(editData.quantity),
         updatedDate: new Date().toISOString().split("T")[0]
       });
-      showAlert("Updated ✅", "Stock updated successfully.");
-      setEditId(null);
 
-      // UI Refresh
       setStocks(stocks.map(s => s.id === editId ? editData : s));
+      setEditId(null);
+      showMsg("✔ Stock updated successfully");
+
     } catch (err) {
-      showAlert("Error ❌", "Update failed: " + err.message);
+      showMsg("❌ Update failed!", "error");
     }
   };
 
-  // 🗑 DELETE STOCK (MYSQL DELETE)
+  // 🗑 DELETE STOCK
   const handleDelete = async (id) => {
-    if (!isAuthorized) return showAlert("Denied ❌","Permission nahi hai.");
+    if (!isAuthorized) return showMsg("❌ Permission denied!", "error");
     try {
       await axios.delete(`http://localhost:5000/api/stocks/${id}`);
-      showAlert("Deleted 🗑️", "Stock item removed.");
       setStocks(stocks.filter(s => s.id !== id));
+      showMsg("🗑️ Deleted successfully", "success");
     } catch (err) {
-      showAlert("Error ❌", "Delete fail: " + err.message);
+      showMsg("❌ Delete failed!", "error");
     }
   };
 
@@ -123,6 +123,7 @@ const StockTable = ({ role }) => {
 
                   return (
                     <tr key={stock.id} className={editing ? "active-edit-row" : low ? "low-stock-bg" : ""}>
+                      
                       <td>{i + 1}</td>
 
                       <td>
@@ -160,8 +161,8 @@ const StockTable = ({ role }) => {
                       <td>
                         {editing ? (
                           <>
-                            <button onClick={handleSave}>💾 Save</button>
-                            <button onClick={() => setEditId(null)}>✖</button>
+                            <button onClick={handleSave}>💾</button>
+                            <button onClick={() => setEditId(null)}>❌</button>
                           </>
                         ) : (
                           <>
@@ -181,7 +182,13 @@ const StockTable = ({ role }) => {
         </div>
       </div>
 
-      <Alert {...alertData} onClose={closeAlert} />
+      {/* ⭐ Snackbar (Alert removed) */}
+      <CustomSnackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({...snackbar, open:false})}
+      />
     </>
   );
 };
