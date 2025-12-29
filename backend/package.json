@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "localhost",
   "version": "1.0.0",
   "description": "Dharashakti Agro Products Backend",
   "main": "server.js",

@@ -14,7 +14,7 @@ import PurchaseForm from "./component/Purchase/PurchaseForm";
 import EmployeeTable from "./component/Employee/EmployeeTable";
 import EmployeeAdd from "./component/Employee/EmployeeAdd";
 import EmployeeLedger from "./component/Employee/EmployeeLedger/EmployeeLedger";
-import StockManagement from "./component/Stocks/StockManagement";
+import StockTable from "./component/Stocks/StockTable";
 import StockAddForm from "./component/Stocks/StockAddForm";
 import Attendance from "./component/Employee/Attendance/Attendance";
 import ExpenseManager from "./component/Employee/ExpenseManager/ExpenseManager";
@@ -127,7 +127,7 @@ function App() {
             <Route path="/sales-table" element={<ProtectedRoute managerAllowed><SalesTable role={user?.role}/></ProtectedRoute>} />
             <Route path="/purchase-form" element={<ProtectedRoute managerAllowed><PurchaseForm role={user?.role}/></ProtectedRoute>} />
             <Route path="/purchase-table" element={<ProtectedRoute managerAllowed><PurchaseTable role={user?.role}/></ProtectedRoute>} />
-            <Route path="/stock-management" element={<ProtectedRoute managerAllowed><StockManagement role={user?.role}/></ProtectedRoute>} />
+            <Route path="/stock-management" element={<ProtectedRoute managerAllowed><StockTable role={user?.role}/></ProtectedRoute>} />
             <Route path="/stock-add" element={<ProtectedRoute managerAllowed><StockAddForm role={user?.role}/></ProtectedRoute>} />
             <Route path="/employee-table" element={<ProtectedRoute managerAllowed><EmployeeTable role={user?.role}/></ProtectedRoute>} />
             <Route path="/Reports_Printing" element={<ProtectedRoute managerAllowed><Reports_Printing role={user?.role}/></ProtectedRoute>} />

@@ -5,229 +5,304 @@ const db = require('./db');
 
 const app = express();
 
-
-
-// server.js ke top par
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-/** * ✅ CONFIGURATION & SECURITY 
- * Photo (Base64) upload ke liye 50MB limit zaroori hai.
- */
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-/** * 🏠 ROOT ROUTE
- */
 app.get('/', (req, res) => {
-  res.send("Dharashakti Backend is Running!");
+  res.send("🚀 Dharashakti Backend is Running!");
 });
 
-/** * 🔑 AUTHENTICATION & SESSION MANAGEMENT
- */
+/* ========================= LOGIN ========================= */
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  const sessionId = Math.random().toString(36).substring(7);
+    const { username, password } = req.body;
+    const serverSessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
 
-  try {
-    const [rows] = await db.query('SELECT * FROM employees WHERE username = ? AND password = ?', [username, password]);
-    
-    if (rows.length > 0) {
-      const user = rows[0];
-      if (user.isBlocked) {
-        return res.status(403).json({ success: false, message: "Your account is blocked!" });
-      }
+    try {
+        const [rows] = await db.query(
+            'SELECT id, name, role, password, isBlocked FROM employees WHERE id = ? AND password = ? LIMIT 1',
+            [username, password]
+        );
 
-      await db.query('UPDATE employees SET currentSessionId = ? WHERE id = ?', [sessionId, user.id]);
-      
-      res.json({ 
-        success: true, 
-        user: { ...user, currentSessionId: sessionId } 
-      });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid ID or Password" });
+        if (!rows || rows.length === 0) {
+            return res.status(401).json({ success: false, message: "❌ Invalid ID or Password" });
+        }
+
+        const user = rows[0];
+
+        if (user.isBlocked === 1) {
+            return res.status(403).json({ success: false, message: "🚫 Account Blocked by Admin" });
+        }
+
+        await db.query('UPDATE employees SET currentSessionId = ? WHERE id = ?', [serverSessionId, user.id]);
+        delete user.password;
+
+        res.json({
+            success: true,
+            message: "✅ Login Successful",
+            user: { ...user, currentSessionId: serverSessionId, loginTime: new Date().toISOString() }
+        });
+
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "⚠ Server / Database Error" });
     }
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
 });
 
+
+/* ========================= SESSION CHECK ========================= */
 app.get('/api/users/session-check/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const [rows] = await db.query('SELECT currentSessionId, isBlocked FROM employees WHERE id = ?', [id]);
-    if (rows.length > 0) {
-      res.json({ 
-        activeSessionId: rows[0].currentSessionId,
-        isBlocked: rows[0].isBlocked === 1 
-      });
-    } else {
-      res.status(404).json({ message: "User not found" });
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-/** * 📝 REGISTRATION & EMPLOYEE CONTROL
- */
-app.post('/api/register-admin', async (req, res) => {
-  const { name, email, phone, aadhar, password, photo } = req.body;
-  const generatedId = Math.floor(10000000 + Math.random() * 90000000).toString();
+    if (rows.length === 0) return res.status(404).json({ success: false, message: "User not found" });
 
-  try {
-    const query = `INSERT INTO employees (name, email, phone, aadhar, username, password, photo, role, isBlocked) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 'Admin', 0)`;
-    await db.query(query, [name, email, phone, aadhar, generatedId, password, photo]);
-    res.json({ success: true, employeeId: generatedId });
+    res.json({
+      success: true,
+      currentSessionId: rows[0].currentSessionId,
+      isBlocked: rows[0].isBlocked === 1
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.sqlMessage || error.message });
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 });
 
-app.post('/api/employees/register', async (req, res) => {
-  const data = req.body;
-  let employeeId = Math.floor(10000000 + Math.random() * 90000000).toString();
-  const role = (data.designation === "Admin" || data.designation === "Manager") ? data.designation : "Worker";
+
+/* ========================= DASHBOARD STATS ========================= */
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const [sales] = await db.query("SELECT COUNT(*) AS totalSales FROM sales");
+    const [due] = await db.query("SELECT SUM(payment_due) AS totalDue FROM sales");
+    const [products] = await db.query("SELECT COUNT(*) AS totalProducts FROM products");
+    const [employees] = await db.query("SELECT COUNT(*) AS totalEmployees FROM employees");
+
+    res.json({
+      success: true,
+      totalSales: sales[0].totalSales || 0,
+      totalDue: due[0].totalDue || 0,
+      totalProducts: products[0].totalProducts || 0,
+      totalEmployees: employees[0].totalEmployees || 0,
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
+
+
+/* ========================= SALES ========================= */
+app.get('/api/sales/next-si', async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT MAX(si) AS lastSi FROM sales");
+    res.json({ success: true, nextSi: (rows[0].lastSi || 0) + 1 });
+  } catch {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+app.get('/api/sales', async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT * FROM sales ORDER BY id DESC");
+    res.json({ success: true, sales: rows });
+  } catch {
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+});
+
+app.post('/api/sales', async (req, res) => {
+  const d = req.body;
 
   try {
-    const query = `INSERT INTO employees 
-      (username, name, father_name, phone, emergency_phone, aadhar, address, designation, role, joining_date, salary_per_day, bank_name, account_no, ifsc_code, photo, password, isBlocked) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`;
+    const query = `
+      INSERT INTO sales 
+      (date, customer_name, product_name, bill_no, quantity, rate, total_amount, amount_received, payment_due, remarks, bill_due_date, si) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
     
     await db.query(query, [
-      employeeId, data.name, data.fatherName, data.phone, data.emergencyPhone, 
-      data.aadhar, data.address, data.designation, role, data.joiningDate, 
-      data.salary, data.bankName, data.accountNo, data.ifscCode, data.photo, data.password
+      d.date, 
+      d.customerName, 
+      d.productName, 
+      d.billNo, 
+      d.quantity, 
+      d.rate, 
+      d.totalPrice, 
+      d.amountReceived, 
+      d.paymentDue, 
+      d.remarks, 
+      d.billDueDate, 
+      d.si
     ]);
-    res.json({ success: true, employeeId });
+
+    res.json({ success: true, message: "Sale saved successfully!" });
+
+  } catch (err) {
+    console.error("SQL Error:", err);
+    res.status(500).json({ success: false, message: "Database error: " + err.message });
+  }
+});
+        
+
+app.put("/api/sales/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    date, billNo, productName, customerName,
+    quantity, rate, totalPrice, amountReceived,
+    paymentDue, billDueDate, remarks
+  } = req.body;
+
+  try {
+    const sql = `
+      UPDATE sales SET 
+        date = ?, 
+        bill_no = ?, 
+        product_name = ?, 
+        customer_name = ?, 
+        quantity = ?, 
+        rate = ?, 
+        total_amount = ?, 
+        amount_received = ?, 
+        payment_due = ?, 
+        bill_due_date = ?, 
+        remarks = ?
+      WHERE id = ?
+    `;
+
+    await db.query(sql, [
+      date, billNo, productName, customerName,
+      quantity, rate, totalPrice, amountReceived,
+      paymentDue, billDueDate, remarks, id
+    ]);
+
+    res.json({ success: true, message: "Sale Updated Successfully!" });
+
+  } catch (err) {
+    console.error("UPDATE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+app.delete("/api/sales/:id", async (req, res) => {
+  try {
+    await db.query("DELETE FROM sales WHERE id=?", [req.params.id]);
+    res.json({ success: true, message: "Record Deleted" });
+  } catch {
+    res.status(500).json({ success: false, message: "Delete Failed" });
+  }
+});
+
+
+/* ========================= STOCKS ========================= */
+// 📌 ADD STOCK (INSERT NEW STOCK)
+// 📌 GET STOCK LIST (FINAL)
+app.get("/api/stocks", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT * FROM stocks ORDER BY id DESC");
+    return res.json({ success: true, stock: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post("/api/stocks", async (req, res) => {
+  const {
+    date,
+    supplierName,
+    productName, // this will insert as "item"
+    billNo,
+    quantity,
+    rate,
+    totalAmount,
+    paidAmount,
+    balanceAmount,
+    remarks,
+    unit // optional (dropdown se aayega)
+  } = req.body;
+
+  try {
+    const sql = `
+      INSERT INTO stocks 
+      (date, supplierName, item, billNo, quantity, rate, totalAmount, paidAmount, balanceAmount, remarks, updatedDate, unit)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `;
+
+    await db.query(sql, [
+      date,
+      supplierName,
+      productName, // 👈 item column me jaayega
+      billNo,
+      quantity,
+      rate,
+      totalAmount,
+      paidAmount,
+      balanceAmount,
+      remarks,
+      new Date().toISOString().split("T")[0], // updatedDate
+      unit || "kg" // default agar kuch na bheje
+    ]);
+
+    return res.json({
+      success: true,
+      message: "📦 Stock Added Successfully!"
+    });
+
+  } catch (error) {
+    console.error("❌ Stock Insert Error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+app.put("/api/stocks/:id", async (req, res) => {
+  const { id } = req.params;
+  const d = req.body;
+  try {
+    await db.query(`
+      UPDATE stocks SET item=?, quantity=?, unit=?, remarks=?, updatedDate=? WHERE id=?
+    `, [d.item, d.quantity, d.unit, d.remarks, d.updatedDate, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete("/api/stocks/:id", async (req, res) => {
+  try {
+    await db.query("DELETE FROM stocks WHERE id=?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+/* ========================= PURCHASES ========================= */
+app.post("/api/purchases", async (req, res) => {
+  const {
+    date, supplierName, productName, billNo,
+    quantity, rate, totalAmount, paidAmount,
+    balanceAmount, remarks
+  } = req.body;
+
+  try {
+    await db.query(`
+      INSERT INTO purchases (date, supplierName, productName, billNo, quantity, rate, totalAmount, paidAmount, balanceAmount, remarks)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+    `, [date, supplierName, productName, billNo, quantity,
+        rate, totalAmount, paidAmount, balanceAmount, remarks]);
+
+    res.json({ success: true, message: "Purchase Saved Successfully!" });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-app.get('/api/employees', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT id, name, username, role, photo, isBlocked FROM employees');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
-app.delete('/api/employees/:id', async (req, res) => {
-  try {
-    await db.query('DELETE FROM employees WHERE id = ?', [req.params.id]);
-    res.json({ success: true, message: "Employee deleted" });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-/** * 📅 ATTENDANCE & PAYROLL
- */
-app.post('/api/attendance', async (req, res) => {
-  const { employee_id, date, status } = req.body;
-  try {
-    const query = `INSERT INTO attendance (employee_id, date, status) 
-                   VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status)`;
-    await db.query(query, [employee_id, date, status]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/attendance/history/:empId', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT date, status FROM attendance WHERE employee_id = ? ORDER BY date DESC', [req.params.empId]);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/salary/advance', async (req, res) => {
-  const { employee_id, amount, type } = req.body;
-  const date = new Date().toISOString().split('T')[0];
-  try {
-    await db.query('INSERT INTO salary_payments (employee_id, amount, date, type) VALUES (?, ?, ?, ?)', [employee_id, amount, date, type]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-/** * 💰 SALES, PURCHASES & FINANCE
- */
-app.get('/api/sales/next-si', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT MAX(si) as lastSi FROM sales');
-    res.json({ nextSi: (rows[0].lastSi || 0) + 1 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/sales', async (req, res) => {
-  const d = req.body;
-  try {
-    const query = `INSERT INTO sales (date, customer_name, product_name, bill_no, quantity, rate, total_amount, amount_received, payment_due, remarks, bill_due_date, si) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
-    await db.query(query, [d.date, d.customerName, d.productName, d.billNo, d.quantity, d.rate, d.totalPrice, d.amountReceived, d.paymentDue, d.remarks, d.billDueDate, d.si]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/finance/profit-loss', async (req, res) => {
-  try {
-    const [[s], [p], [e]] = await Promise.all([
-      db.query('SELECT SUM(total_amount) as total FROM sales'),
-      db.query('SELECT SUM(total_amount) as total FROM purchases'),
-      db.query('SELECT SUM(amount) as total FROM expenses')
-    ]);
-    res.json({ 
-      sales: Number(s[0].total || 0), 
-      purchases: Number(p[0].total || 0), 
-      expenses: Number(e[0].total || 0) 
-    });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-/** * 📊 REPORTS & DASHBOARD
- */
-app.get('/api/reports/:category', async (req, res) => {
-  const { category } = req.params;
-  let q = "";
-  if (category === "sales") q = "SELECT * FROM sales ORDER BY date DESC";
-  else if (category === "purchases") q = "SELECT * FROM purchases ORDER BY date DESC";
-  else if (category === "stock") q = "SELECT * FROM products";
-  else return res.status(400).json({ message: "Invalid category" });
-
-  try {
-    const [rows] = await db.query(q);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/dashboard/stats', async (req, res) => {
-  try {
-    const [[s], [p]] = await Promise.all([
-      db.query('SELECT COUNT(*) as c FROM sales'),
-      db.query('SELECT COUNT(*) as c FROM products')
-    ]);
-    res.json({ totalSales: s[0].c, totalProducts: p[0].c });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-/** * 🛡️ MASTER CONTROL (LOGS & SYSTEM UPDATES)
- */
-app.get('/api/logs', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 50');
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/admin/update-system', async (req, res) => {
-  const { targetId, field, value, adminName, targetName } = req.body;
-  try {
-    await db.query(`UPDATE employees SET ${field} = ? WHERE id = ?`, [value, targetId]);
-    await db.query('INSERT INTO activity_logs (admin_name, action_detail) VALUES (?, ?)', 
-      [adminName, `${field.toUpperCase()} updated for ${targetName}`]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// 🚀 SERVER START
+/* ========================= SERVER START ========================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Dharashakti Server running on port ${PORT}`);

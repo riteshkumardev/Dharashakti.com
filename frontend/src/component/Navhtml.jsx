@@ -27,6 +27,7 @@ export default function Navbar({ user, setUser }) {
       try {
         const response = await axios.get(`http://localhost:5000/api/users/session-check/${user.id}`);
         
+        
         // Agar backend se mili session ID match nahi karti
         if (response.data.activeSessionId && response.data.activeSessionId !== user.currentSessionId) {
           forceLogout("⚠️ This ID was logged in on another device.");

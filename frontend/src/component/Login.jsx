@@ -1,29 +1,20 @@
 import React, { useState, useEffect } from "react";
-import axios from 'axios'; // Firebase ki jagah Axios
+import axios from 'axios';
 import { useNavigate } from "react-router-dom";
 import Loader from "./Core_Component/Loader/Loader"; 
 import CustomSnackbar from "./Core_Component/Snackbar/CustomSnackbar"; 
 import "../App.css";
 
-// Session ID generator (vahi purana logic)
-const generateSessionId = () =>
-  "sess_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
-
 function Login({ setUser }) {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  /* --- 🔢 Captcha States --- */
   const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, total: 0 });
   const [userCaptcha, setUserCaptcha] = useState("");
-
-  /* 🔔 Snackbar State */
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "error" });
 
   const navigate = useNavigate();
 
-  // Snackbar Helper
   const showMsg = (msg, type = "error") => {
     setSnackbar({ open: true, message: msg, severity: type });
   };
@@ -38,43 +29,31 @@ function Login({ setUser }) {
   useEffect(() => {
     refreshCaptcha();
     const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      navigate("/", { replace: true });
-    }
+    if (savedUser) navigate("/", { replace: true });
   }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Captcha Verification
     if (parseInt(userCaptcha) !== captcha.total) {
       showMsg("❌ Invalid Captcha. Please solve again.", "error");
       refreshCaptcha();
       return;
     }
 
-    // 2. ID Validation (8 Digits)
     const cleanId = employeeId.trim();
-    if (!/^\d{8}$/.test(cleanId)) {
-      showMsg("Please enter a valid 8-digit numeric ID.", "warning");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      // --- 🚀 NODE.JS BACKEND CALL ---
-      // Humne backend mein 'username' field rakha tha, yahan 'username' ki jagah cleanId bhej rahe hain
       const response = await axios.post('http://localhost:5000/api/login', {
         username: cleanId, 
         password: password
-      });
+      }, { timeout: 10000 }); // 10 Sec timeout
 
       if (response.data.success) {
         const userData = response.data.user;
-        const sessionId = generateSessionId();
+        const sessionId = userData.currentSessionId; // Backend synced ID
 
-        // Professional feel ke liye chota delay
         setTimeout(() => {
           const finalUser = {
             ...userData,
@@ -87,11 +66,9 @@ function Login({ setUser }) {
           setLoading(false); 
           navigate("/", { replace: true });
         }, 800);
-
       }
     } catch (err) {
-      // Backend se aane wala error message dikhayenge
-      const errorMsg = err.response?.data?.message || "Server Error. Try again.";
+      const errorMsg = err.response?.data?.message || "Connection Error. Is Backend running?";
       showMsg("❌ " + errorMsg, "error");
       refreshCaptcha();
       setLoading(false);

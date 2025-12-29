@@ -194,7 +194,7 @@ const SalesEntry = ({ role }) => {
         </form>
       </div>
 
-      <CustomSnackbar 
+      <CustomSnackbar
         open={snackbar.open} 
         message={snackbar.message} 
         severity={snackbar.severity} 

@@ -1,129 +1,116 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import "./Sales.css";
-import { getDatabase, ref, onValue, remove, update } from "firebase/database";
-import { app } from "../../redux/api/firebase/firebase";
 import Loader from "../Core_Component/Loader/Loader";
-import Alert from "../Core_Component/Alert/Alert";
+import CustomSnackbar from "../Core_Component/Snackbar/CustomSnackbar";
 
-const SalesTable = ({ role }) => { // 👈 role prop add kiya gaya hai
-  const db = getDatabase(app);
-  
-  // 🔐 Permission Check: Sirf Admin aur Accountant edit/delete kar sakte hain
+const SalesTable = ({ role }) => {
   const isAuthorized = role === "Admin" || role === "Accountant";
 
   const [salesList, setSalesList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("All");
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
-  const [sortBy, setSortBy] = useState("dateNewest");
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
 
-  /* 🔔 Alert State */
-  const [alertData, setAlertData] = useState({
-    show: false,
-    title: "",
+  // 🔔 Snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
     message: "",
+    severity: "success",
   });
 
-  const showAlert = (title, message) => {
-    setAlertData({ show: true, title, message });
+  const showMsg = (msg, type = "success") => {
+    setSnackbar({ open: true, message: msg, severity: type });
+    setTimeout(() => {
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    }, 2500);
   };
 
-  const closeAlert = () => {
-    setAlertData((prev) => ({ ...prev, show: false }));
-  };
-
-  // 1️⃣ Fetch Data (Unchanged)
+  // 🔄 GET Sales
   useEffect(() => {
-    const salesRef = ref(db, "sales");
-    const unsubscribe = onValue(salesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-        }));
-        setSalesList(list);
-      } else {
-        setSalesList([]);
+    const fetchSales = async () => {
+      try {
+        const res = await axios.get("http://localhost:5000/api/sales");
+        setSalesList(res.data.sales || []);
+      } catch (e) {
+        showMsg("Server Error ❌ Data fetch nahi ho paya", "error");
       }
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [db]);
+    };
+    fetchSales();
+  }, []);
 
-  // 2️⃣ Auto Calculation in Edit Mode (Unchanged)
-  useEffect(() => {
-    if (editId) {
-      const total = (Number(editData.quantity) || 0) * (Number(editData.rate) || 0);
-      const due = total - (Number(editData.amountReceived) || 0);
-      setEditData((prev) => ({ ...prev, totalPrice: total, paymentDue: due }));
-    }
-  }, [editData.quantity, editData.rate, editData.amountReceived, editId]);
-
-  // 3️⃣ Filter & Sort Logic (Unchanged)
-  const getProcessedList = () => {
-    let list = salesList.filter((s) => {
-      const matchesSearch =
-        s.customerName?.toLowerCase().includes(search.toLowerCase()) ||
-        s.billNo?.toLowerCase().includes(search.toLowerCase());
-      const matchesProduct =
-        selectedProduct === "All" || s.productName === selectedProduct;
-      return matchesSearch && matchesProduct;
-    });
-
-    list.sort((a, b) => {
-      if (sortBy === "dateNewest") return new Date(b.date) - new Date(a.date);
-      if (sortBy === "dateOldest") return new Date(a.date) - new Date(b.date);
-      if (sortBy === "billAsc") return a.billNo.localeCompare(b.billNo, undefined, { numeric: true });
-      if (sortBy === "billDesc") return b.billNo.localeCompare(a.billNo, undefined, { numeric: true });
-      return 0;
-    });
-    return list;
-  };
-
-  const processedList = getProcessedList();
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = processedList.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(processedList.length / rowsPerPage);
-
-  // 4️⃣ Actions with Permission Guard
-  const handleDelete = (id) => {
-    if (!isAuthorized) {
-      showAlert("Denied ❌", "Aapke paas delete karne ki permission nahi hai.");
-      return;
-    }
-    remove(ref(db, `sales/${id}`))
-      .then(() => showAlert("Deleted 🗑️", "Record successfully delete ho gaya."))
-      .catch((err) => showAlert("Error ❌", "Delete nahi ho paya."));
-  };
-
-  const handleSave = () => {
-    if (!isAuthorized) return;
-    update(ref(db), { [`/sales/${editId}`]: editData })
-      .then(() => {
-        showAlert("Updated! ✅", "Record update kar diya gaya hai.");
-        setEditId(null);
-      })
-      .catch((err) => showAlert("Error ❌", "Update fail ho gaya."));
-  };
-
+  // ✏️ Edit Start
   const startEdit = (sale) => {
-    if (!isAuthorized) {
-      showAlert("Denied ❌", "Aapke paas edit karne ki permission nahi hai.");
-      return;
-    }
+    if (!isAuthorized) return showMsg("Permission Denied ❌", "error");
+
     setEditId(sale.id);
-    setEditData({ ...sale });
+    setEditData({
+      id: sale.id,
+      date: sale.date?.substring(0,10),
+      billNo: sale.bill_no,
+      productName: sale.product_name,
+      customerName: sale.customer_name,
+      quantity: sale.quantity,
+      rate: sale.rate,
+      totalPrice: sale.total_amount,
+      amountReceived: sale.amount_received,
+      paymentDue: sale.payment_due,
+      billDueDate: sale.bill_due_date?.substring(0,10),
+      remarks: sale.remarks,
+    });
   };
 
-  const handleEditChange = (e) => {
+  // 🔢 Recalculate values live
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setEditData((prev) => ({ ...prev, [name]: value }));
+    const updated = { ...editData, [name]: value };
+
+    updated.totalPrice = (Number(updated.quantity) || 0) * (Number(updated.rate) || 0);
+    updated.paymentDue = updated.totalPrice - (Number(updated.amountReceived) || 0);
+
+    setEditData(updated);
+  };
+
+  // 💾 Save Update
+  const handleSave = async () => {
+    try {
+      await axios.put(`http://localhost:5000/api/sales/${editId}`, editData);
+
+      setSalesList(salesList.map((s) => s.id === editId ? {
+        ...s,
+        date: editData.date,
+        bill_no: editData.billNo,
+        product_name: editData.productName,
+        customer_name: editData.customerName,
+        quantity: editData.quantity,
+        rate: editData.rate,
+        total_amount: editData.totalPrice,
+        amount_received: editData.amountReceived,
+        payment_due: editData.paymentDue,
+        bill_due_date: editData.billDueDate,
+        remarks: editData.remarks,
+      } : s));
+
+      setEditId(null);
+      showMsg("Record Updated Successfully ✔", "success");
+
+    } catch {
+      showMsg("Update Failed ❌ Server Error", "error");
+    }
+  };
+
+  // 🗑 Delete Record
+  const handleDelete = async (id) => {
+    if (!isAuthorized) return showMsg("Permission Denied ❌", "error");
+
+    try {
+      await axios.delete(`http://localhost:5000/api/sales/${id}`);
+      setSalesList(salesList.filter((r) => r.id !== id));
+      showMsg("Record Deleted 🗑️", "success");
+    } catch {
+      showMsg("Delete Error ❌", "error");
+    }
   };
 
   if (loading) return <Loader />;
@@ -132,122 +119,67 @@ const SalesTable = ({ role }) => { // 👈 role prop add kiya gaya hai
     <>
       <div className="table-container-wide">
         <div className="table-card-wide">
-          <div className="table-header-flex">
-            <h2 className="table-title">SALES RECORDS</h2>
-            <div className="table-controls-row">
-              {/* Filter controls unchanged */}
-              <select className="table-select-custom" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="dateNewest">Newest Date</option>
-                <option value="dateOldest">Oldest Date</option>
-                <option value="billAsc">Bill No (Low to High)</option>
-                <option value="billDesc">Bill No (High to Low)</option>
-              </select>
+          <h2 className="table-title">SALES RECORDS 📑</h2>
 
-              <select className="table-select-custom" value={selectedProduct} onChange={(e) => { setSelectedProduct(e.target.value); setCurrentPage(1); }}>
-                <option value="All">All Products</option>
-                <option value="Corn Grit">Corn Grit</option>
-                <option value="Cattle Feed">Cattle Feed</option>
-                <option value="Rice Grit">Rice Grit</option>
-                <option value="Corn Flour">Corn Flour</option>
-              </select>
+          <table className="modern-sales-table">
+            <thead>
+              <tr>
+                <th>SI</th><th>Date</th><th>Bill</th><th>Product</th><th>Customer</th>
+                <th>Qty</th><th>Rate</th><th>Total</th><th>Recv</th><th>Due</th>
+                <th>Due Date</th><th>Remark</th><th>Action</th>
+              </tr>
+            </thead>
 
-              <div className="search-input-wrapper">
-                <input
-                  className="table-search-input"
-                  placeholder="Search Customer/Bill..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                />
-              </div>
-            </div>
-          </div>
+            <tbody>
+              {salesList.map((sale) => (
+                <tr key={sale.id} className={editId === sale.id ? "active-edit" : ""}>
+                  
+                  <td>{sale.si}</td>
 
-          <div className="table-responsive-wrapper">
-            <table className="modern-sales-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Bill No</th>
-                  <th>Product</th>
-                  <th>Customer</th>
-                  <th>Qty</th>
-                  <th>Rate</th>
-                  <th>Total</th>
-                  <th>Received</th>
-                  <th>Due</th>
-                  <th>Due Date</th>
-                  <th>Actions</th>
+                  <td>
+                    {editId === sale.id ? (
+                      <input type="date" name="date" value={editData.date} onChange={handleChange}/>
+                    ) : sale.date?.substring(0, 10)}
+                  </td>
+
+                  <td>{editId === sale.id ? <input name="billNo" value={editData.billNo} onChange={handleChange}/> : sale.bill_no}</td>
+                  <td>{editId === sale.id ? <input name="productName" value={editData.productName} onChange={handleChange}/> : sale.product_name}</td>
+                  <td>{editId === sale.id ? <input name="customerName" value={editData.customerName} onChange={handleChange}/> : sale.customer_name}</td>
+                  <td>{editId === sale.id ? <input name="quantity" type="number" value={editData.quantity} onChange={handleChange}/> : sale.quantity}</td>
+                  <td>{editId === sale.id ? <input name="rate" type="number" value={editData.rate} onChange={handleChange}/> : "₹"+sale.rate}</td>
+                  <td>₹{editId === sale.id ? editData.totalPrice : sale.total_amount}</td>
+                  <td>{editId === sale.id ? <input name="amountReceived" type="number" value={editData.amountReceived} onChange={handleChange}/> : sale.amount_received}</td>
+                  <td className="danger-text">₹{editId === sale.id ? editData.paymentDue : sale.payment_due}</td>
+                  <td>{editId === sale.id ? <input name="billDueDate" type="date" value={editData.billDueDate} onChange={handleChange}/> : sale.bill_due_date?.substring(0,10)}</td>
+                  <td>{editId === sale.id ? <input name="remarks" value={editData.remarks} onChange={handleChange}/> : sale.remarks}</td>
+
+                  <td>
+                    {editId === sale.id ? (
+                      <>
+                        <button onClick={handleSave}>💾</button>
+                        <button onClick={() => setEditId(null)}>❌</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(sale)} disabled={!isAuthorized}>✏️</button>
+                        <button onClick={() => handleDelete(sale.id)} disabled={!isAuthorized}>🗑️</button>
+                      </>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {currentRows.map((sale) => (
-                  <tr key={sale.id} className={editId === sale.id ? "active-edit" : ""}>
-                    {/* Inline edit logic remains same */}
-                    <td>{editId === sale.id ? <input type="date" name="date" value={editData.date} onChange={handleEditChange} className="edit-input-field" /> : sale.date}</td>
-                    <td>{editId === sale.id ? <input name="billNo" value={editData.billNo} onChange={handleEditChange} className="edit-input-field" /> : <span className="bill-tag">{sale.billNo}</span>}</td>
-                    <td>
-                      {editId === sale.id ? (
-                        <select name="productName" value={editData.productName} onChange={handleEditChange} className="edit-input-field">
-                          <option value="Corn Grit">Corn Grit</option>
-                          <option value="Cattle Feed">Cattle Feed</option>
-                          <option value="Rice Grit">Rice Grit</option>
-                          <option value="Corn Flour">Corn Flour</option>
-                        </select>
-                      ) : <strong>{sale.productName}</strong>}
-                    </td>
-                    <td>{editId === sale.id ? <input name="customerName" value={editData.customerName} onChange={handleEditChange} className="edit-input-field" /> : sale.customerName}</td>
-                    <td>{editId === sale.id ? <input type="number" name="quantity" value={editData.quantity} onChange={handleEditChange} className="edit-input-field small-input" /> : sale.quantity}</td>
-                    <td>₹{sale.rate}</td>
-                    <td className="bold-cell">₹{editId === sale.id ? editData.totalPrice : sale.totalPrice}</td>
-                    <td>₹{editId === sale.id ? <input type="number" name="amountReceived" value={editData.amountReceived} onChange={handleEditChange} className="edit-input-field small-input" /> : sale.amountReceived}</td>
-                    <td className="danger-text">₹{editId === sale.id ? editData.paymentDue : sale.paymentDue}</td>
-                    <td>{editId === sale.id ? <input type="date" name="billDueDate" value={editData.billDueDate} onChange={handleEditChange} className="edit-input-field" /> : sale.billDueDate}</td>
-                    
-                    <td className="action-btns-cell">
-                      {editId === sale.id ? (
-                        <>
-                          <button className="save-btn-ui" onClick={handleSave}>💾</button>
-                          <button className="cancel-btn-ui" onClick={() => setEditId(null)}>✖</button>
-                        </>
-                      ) : (
-                        <>
-                          <button 
-                            className="row-edit-btn" 
-                            onClick={() => startEdit(sale)}
-                            disabled={!isAuthorized}
-                            title={!isAuthorized ? "No Edit Permission" : "Edit Record"}
-                            style={{ opacity: isAuthorized ? 1 : 0.5, cursor: isAuthorized ? "pointer" : "not-allowed" }}
-                          >✏️</button>
-                          
-                          <button 
-                            className="row-delete-btn" 
-                            onClick={() => handleDelete(sale.id)}
-                            disabled={!isAuthorized}
-                            title={!isAuthorized ? "No Delete Permission" : "Delete Record"}
-                            style={{ opacity: isAuthorized ? 1 : 0.5, cursor: isAuthorized ? "pointer" : "not-allowed" }}
-                          >🗑️</button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
 
-          <div className="pagination-container">
-            <button disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => prev - 1)} className="pg-btn">◀ Prev</button>
-            <span className="pg-info">Page {currentPage} of {totalPages || 1}</span>
-            <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage((prev) => prev + 1)} className="pg-btn">Next ▶</button>
-          </div>
         </div>
       </div>
 
-      <Alert
-        show={alertData.show}
-        title={alertData.title}
-        message={alertData.message}
-        onClose={closeAlert}
+      {/* ⭐ Snackbar UI */}
+      <CustomSnackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       />
     </>
   );
