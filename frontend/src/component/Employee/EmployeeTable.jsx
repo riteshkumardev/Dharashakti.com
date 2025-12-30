@@ -17,21 +17,26 @@ const EmployeeTable = ({ role }) => {
   const navigate = useNavigate();
 
   // --- 1. Fetch All Employees (MySQL) ---
-  const fetchEmployees = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/employees");
-      setEmployees(res.data.reverse());
-    } catch (err) {
-      console.error("Error fetching employees:", err);
-    } finally {
-      setLoading(false);
+ const fetchEmployees = async () => {
+  try {
+    const res = await axios.get("http://localhost:5000/api/employees");
+    
+    // FIX: res.data pura object hai, hame res.data.employees array chahiye
+    if (res.data && res.data.employees) {
+      // Array ko reverse karein taaki naya employee upar dikhe
+      setEmployees([...res.data.employees].reverse()); 
     }
-  };
+  } catch (err) {
+    console.error("Error fetching employees:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchEmployees();
   }, []);
-
+     
   const startEdit = (emp) => {
     if (!isAuthorized) {
       alert("Unauthorized: Aapko edit karne ki permission nahi hai.");
@@ -45,49 +50,69 @@ const EmployeeTable = ({ role }) => {
     const { name, value } = e.target;
     setEditData(prev => ({ ...prev, [name]: value }));
   };
+  
 
   const handleNavigate = (path) => {
     navigate(path);
   };
 
-  // --- 2. Save Updated Employee (MySQL) ---
-  const handleSave = async () => {
+// --- 2. Save Updated Employee (MySQL) ---
+const handleSave = async () => {
     if (!isAuthorized) return;
+
+    setLoading(true); // Spinner ON karein
+
     try {
-      const res = await axios.put(`http://localhost:5000/api/employees/${editId}`, editData);
-      if (res.data.success) {
-        alert("Employee Updated Successfully!");
-        setEditId(null);
-        fetchEmployees(); // List refresh karein
-      }
-    } catch (err) {
-      alert("Error: " + (err.response?.data?.message || err.message));
-    }
-  };
+        // Timeout 30 seconds rakha hai taaki agar network slow ho toh application hang na ho
+        const res = await axios.put(`http://localhost:5000/api/employees/${editId}`, editData, {
+            timeout: 30000
+        });
 
-  // --- 3. Delete Employee (MySQL) ---
-  const handleDelete = async (id) => {
-    if (!isAuthorized) {
-      alert("Unauthorized: Aapko delete karne ki permission nahi hai.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      try {
-        const res = await axios.delete(`http://localhost:5000/api/employees/${id}`);
         if (res.data.success) {
-          fetchEmployees();
+            alert("🎉 " + res.data.message);
+            setEditId(null);
+            fetchEmployees(); // List ko refresh karein
         }
-      } catch (err) {
-        alert("Delete failed: " + (err.response?.data?.message || err.message));
-      }
+    } catch (err) {
+        console.error("Update Error:", err);
+        alert("⚠️ Update Failed: " + (err.response?.data?.message || "Server not responding"));
+    } finally {
+        setLoading(false); // Spinner OFF (Har haal mein chalega)
     }
-  };
+};
 
+// --- 3. Delete Employee (MySQL) ---
+const handleDelete = async (id) => {
+    if (!isAuthorized) {
+        alert("Unauthorized: Aapko delete karne ki permission nahi hai.");
+        return;
+    }
+
+    if (window.confirm("Are you sure you want to delete this employee?")) {
+        setLoading(true); // Spinner ON
+
+        try {
+            const res = await axios.delete(`http://localhost:5000/api/employees/${id}`);
+
+            if (res.data.success) {
+                alert("🗑️ Employee deleted successfully!");
+                fetchEmployees(); // List refresh karein
+            }
+        } catch (err) {
+            console.error("Delete Error:", err);
+            alert("⚠️ Delete failed: " + (err.response?.data?.message || "Server error"));
+        } finally {
+            setLoading(false); // Spinner OFF
+        }
+    }
+};
   const filtered = employees.filter(emp => 
     emp.name?.toLowerCase().includes(search.toLowerCase()) || 
     emp.aadhar?.includes(search) ||
     emp.username?.toString().includes(search) // 'username' hamari 8-digit ID hai
   );
+
+ console.log(filtered,"http://localhost:5000/api/employees");
 
   if (loading) return <Loader />;
 
@@ -125,7 +150,7 @@ const EmployeeTable = ({ role }) => {
                   <td>{index + 1}</td>
                   
                   <td style={{fontWeight: 'bold', color: '#2563eb'}}>
-                    {emp.username || '---'}
+                    {emp.id}
                   </td>
 
                   <td>

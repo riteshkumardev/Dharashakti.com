@@ -9,7 +9,7 @@ const db = mysql.createPool({
 });
 
 db.getConnection()
-  .then(() => console.log("📦 DB Connected Successfully!"))
+  
   .catch(err => console.error("❌ DB Connection Failed:", err));
 
 module.exports = db;

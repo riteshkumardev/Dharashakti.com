@@ -9,22 +9,24 @@ const EmployeeAdd = ({ onEntrySaved }) => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
-  const [formData, setFormData] = useState({
+  const initialFormState = {
     name: "",
     fatherName: "",
     phone: "",
-    emergencyPhone: "",
+    emergency: "",
     aadhar: "",
     address: "",
-    designation: "Worker", 
-    joiningDate: new Date().toISOString().split("T")[0],
+    role: "Worker",
+    joinDate: new Date().toISOString().split("T")[0],
     salary: "",
     bankName: "",
-    accountNo: "",
-    ifscCode: "",
+    accountNumber: "",
+    ifsc: "",
     photo: "",
-    password: "" 
-  });
+    password: ""
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   const showMsg = (msg, type = "success") =>
     setSnackbar({ open: true, message: msg, severity: type });
@@ -32,6 +34,14 @@ const EmployeeAdd = ({ onEntrySaved }) => {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    // 🔥 BUG FIX: Image size check (Max 1MB) to prevent ECONNRESET
+    if (file.size > 1024 * 1024) {
+      showMsg("⚠️ Photo size must be less than 1MB", "error");
+      e.target.value = null;
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => setFormData({ ...formData, photo: reader.result });
     reader.readAsDataURL(file);
@@ -42,58 +52,62 @@ const EmployeeAdd = ({ onEntrySaved }) => {
     setFormData({ ...formData, [name]: value });
   };
 
-  // 🚀 FINAL WORKING SUBMIT
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // REQUIRED FIELD CHECK
-    if (!formData.name || !formData.phone || !formData.designation || !formData.password) {
-      return showMsg("⚠️ Required fields: Name, Phone, Role, Password", "error");
+    
+    if (!formData.name || !formData.phone || !formData.password) {
+        showMsg("⚠️ Name, Phone, and Password are required!", "error");
+        return;
     }
 
     setLoading(true);
-
-    const payload = {
-      employee_name: formData.name,
-      father_name: formData.fatherName,
-      phone: formData.phone,
-      emergency_contact: formData.emergencyPhone,
-      aadhar: formData.aadhar,
-      address: formData.address,
-      role: formData.designation,
-      joining_date: formData.joiningDate,
-      salary: formData.salary,
-      bank_name: formData.bankName,
-      account_no: formData.accountNo,
-      ifsc_code: formData.ifscCode,
-      password: formData.password,
-      photo: formData.photo
-    };
+    console.log("1. Starting Submission. Data payload size:", JSON.stringify(formData).length);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/employee/register", payload);
-      
-      if (res.data.success) {
-        showMsg(`🎉 Employee Registered | Login ID: ${res.data.employeeId}`, "success");
-
-        if (onEntrySaved) onEntrySaved();
-
-        // Reset
-        setFormData({
-          name: "", fatherName: "", phone: "", emergencyPhone: "",
-          aadhar: "", address: "", designation: "Worker",
-          joiningDate: new Date().toISOString().split("T")[0],
-          salary: "", bankName: "", accountNo: "", ifscCode: "", photo: "",
-          password: ""
+        // Timeout ko temporary 0 (No timeout) karke dekhte hain
+        const res = await axios.post("http://localhost:5000/api/employees", formData, {
+            timeout: 0, // 0 matlab unlimited wait karega testing ke liye
+            headers: { 'Content-Type': 'application/json' }
         });
-      }
-    } catch (err) {
-      showMsg(err.response?.data?.message || "Registration Failed", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
 
+        // Agar ye line nahi dikh rahi, toh iska matlab try block fail ho gaya
+        console.log("2. Server Response Object:", res);
+
+        if (res.status === 200 || res.status === 201 || res.data.success) {
+            console.log("3. Success conditions met.");
+            showMsg("🎉 Registered Successfully!", "success");
+            setFormData(initialFormState);
+            if (e.target) e.target.reset();
+            if (onEntrySaved) onEntrySaved();
+        } else {
+            console.log("4. Response received but status not success:", res.status);
+            showMsg(res.data.message || "Registration Failed", "error");
+        }
+    } catch (err) {
+        // 🔥 Yeh block batayega ki console.log(res) kyu nahi chala
+        console.error("5. Catch Block Triggered. Error Details:", err);
+
+        let errorMsg = "Registration Failed";
+        
+        if (err.code === 'ECONNABORTED') {
+            errorMsg = "⚠️ Request Timeout: Server response is too slow.";
+        } else if (err.response) {
+            // Server ne response diya par error code ke sath (e.g., 500)
+            console.log("Error Response Data:", err.response.data);
+            errorMsg = err.response.data.message || "Server Internal Error";
+        } else if (err.request) {
+            // Request gayi par server se koi response nahi aaya
+            errorMsg = "⚠️ No response from server. Check if Backend is running.";
+        } else {
+            errorMsg = "⚠️ Error: " + err.message;
+        }
+        
+        showMsg(errorMsg, "error");
+    } finally {
+        console.log("6. Finally: Turning off loader...");
+        setLoading(false);
+    }
+};
   return (
     <div className="table-card-wide">
       {loading && <Loader />}
@@ -101,7 +115,6 @@ const EmployeeAdd = ({ onEntrySaved }) => {
       <h2 className="table-title">EMPLOYEE REGISTRATION FORM</h2>
 
       <form onSubmit={handleSubmit} className="stock-form-grid">
-
         <div className="input-group">
           <label>Employee Name *</label>
           <input name="name" value={formData.name} onChange={handleChange} required />
@@ -114,30 +127,34 @@ const EmployeeAdd = ({ onEntrySaved }) => {
 
         <div className="input-group">
           <label>Phone Number *</label>
-          <input type="number" name="phone" value={formData.phone} onChange={handleChange} required />
+          <input type="text" name="phone" value={formData.phone} onChange={handleChange} required maxLength="10" />
         </div>
 
         <div className="input-group">
           <label>Emergency Contact</label>
-          <input type="number" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange} />
+          <input type="text" name="emergency" value={formData.emergency} onChange={handleChange} maxLength="10" />
         </div>
 
         <div className="input-group">
           <label>Aadhar Number *</label>
-          <input type="number" name="aadhar" value={formData.aadhar} onChange={handleChange} required />
+          <input type="text" name="aadhar" value={formData.aadhar} onChange={handleChange} required maxLength="12" />
         </div>
 
         <div className="input-group">
           <label>Designation *</label>
-          <select name="designation" value={formData.designation} onChange={handleChange}>
-            <option>Manager</option><option>Operator</option><option>Worker</option>
-            <option>Driver</option><option>Helper</option><option>Admin</option>
+          <select name="role" value={formData.role} onChange={handleChange}>
+            <option value="Admin">Admin</option>
+            <option value="Manager">Manager</option>
+            <option value="Operator">Operator</option>
+            <option value="Worker">Worker</option>
+            <option value="Driver">Driver</option>
+            <option value="Helper">Helper</option>
           </select>
         </div>
 
         <div className="input-group">
           <label>Joining Date</label>
-          <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} />
+          <input type="date" name="joinDate" value={formData.joinDate} onChange={handleChange} />
         </div>
 
         <div className="input-group">
@@ -152,12 +169,12 @@ const EmployeeAdd = ({ onEntrySaved }) => {
 
         <div className="input-group">
           <label>Account Number</label>
-          <input name="accountNo" value={formData.accountNo} onChange={handleChange} />
+          <input name="accountNumber" value={formData.accountNumber} onChange={handleChange} />
         </div>
 
         <div className="input-group">
           <label>IFSC Code</label>
-          <input name="ifscCode" value={formData.ifscCode} onChange={handleChange} />
+          <input name="ifsc" value={formData.ifsc} onChange={handleChange} />
         </div>
 
         <div className="input-group">
@@ -166,7 +183,7 @@ const EmployeeAdd = ({ onEntrySaved }) => {
         </div>
 
         <div className="input-group">
-          <label style={{color:"red",fontWeight:"bold"}}>Login Password *</label>
+          <label style={{color:"red", fontWeight:"bold"}}>Login Password *</label>
           <input type="text" name="password" value={formData.password} onChange={handleChange} required />
         </div>
 
@@ -176,7 +193,7 @@ const EmployeeAdd = ({ onEntrySaved }) => {
         </div>
 
         <div className="button-container-full">
-          <button className="btn-submit-colored" disabled={loading}>
+          <button className="btn-submit-colored" type="submit" disabled={loading}>
             {loading ? "Registering..." : "✅ REGISTER EMPLOYEE"}
           </button>
         </div>

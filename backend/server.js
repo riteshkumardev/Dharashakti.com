@@ -309,69 +309,212 @@ app.listen(PORT, () => {
 });
 
 
+app.post('/api/employees', (req, res) => {
+    const data = req.body;
+    const sql = `INSERT INTO employee_register 
+    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
+    const values = [
+        data.name, data.phone, data.role, data.fatherName || null, 
+        data.emergency || null, data.aadhar || null, data.salary || 0, 
+        data.bankName || null, data.accountNumber || null, data.ifsc || null, 
+        data.joinDate || null, data.address || null, data.password, data.photo || null
+    ];
 
-// EMPLOYEE REGISTER API
-app.post("/api/employee/register", async (req, res) => {
-  const { name, phone, role } = req.body;
-  if (!name || !phone || !role) {
-    return res.status(400).json({success:false, message:"Required fields missing: name, phone, role"});
-  }
-
-  const employeeId = Math.floor(10000000 + Math.random() * 90000000);
-  await db.query(
-    "INSERT INTO employees (employee_id, name, phone, role) VALUES (?,?,?,?)",
-    [employeeId, name, phone, role]
-  );
-
-  res.json({ success: true, employeeId });
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error("Database Error:", err);
+            return res.status(500).json({ success: false, message: err.message });
+        }
+        
+        // Yahan 'result.insertId' wahi unique ID hai jo MySQL ne generate ki hai
+        return res.status(200).json({ 
+            success: true, 
+            message: "Employee added successfully!", 
+            userId: result.insertId, // Yeh aapki unique ID hai
+            password: data.password  // Jo password aapne dala tha
+        });
+    });
 });
 
 
+// server.js mein ye confirm karein
+app.use(express.json({ limit: '50mb' })); // Limit ko thoda aur badha dein 50mb safe hai
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.post("/api/employees", (req, res) => {
+    const data = req.body;
+
+    const sql = `INSERT INTO employee_register 
+    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    const values = [
+        data.name, data.phone, data.role, data.fatherName,
+        data.emergency, data.aadhar, data.salary,
+        data.bankName, data.accountNumber, data.ifsc,
+        data.joinDate, data.address, data.password, data.photo
+    ];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.log("MySQL Error:", err);
+            return res.status(500).json({ success: false, message: err.message });
+        }
+
+        // 📌 IMPORTANT: Return & stop here
+        return res.status(201).json({
+            success: true,
+            message: "🎉 Employee Registered Successfully!",
+            id: result.insertId
+        });
+    });
+});
+
+
+// 🚀 UPDATE EMPLOYEE API
+app.put('/api/employees/:id', (req, res) => {
+    const employeeId = req.params.id; // URL se ID lein
+    const {
+        name, phone, role, fatherName, emergency, aadhar, 
+        salary, bankName, accountNumber, ifsc, joinDate, 
+        address, password, photo
+    } = req.body;
+
+    const sql = `UPDATE employee_register SET 
+        name = ?, phone = ?, role = ?, fatherName = ?, emergency = ?, 
+        aadhar = ?, salary = ?, bankName = ?, accountNumber = ?, 
+        ifsc = ?, joinDate = ?, address = ?, password = ?, photo = ? 
+        WHERE id = ?`;
+
+    const values = [
+        name, phone, role, fatherName || null, emergency || null, 
+        aadhar || null, salary || 0, bankName || null, 
+        accountNumber || null, ifsc || null, joinDate || null, 
+        address || null, password, photo || null, 
+        employeeId
+    ];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error("Update Error:", err);
+            return res.status(500).json({ success: false, message: "Database Update Failed: " + err.message });
+        }
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "Employee not found" });
+        }
+
+        res.status(200).json({ success: true, message: "Employee updated successfully!" });
+    });
+});
+
+// 🚀 REGISTER API (With Unique ID Return)
+app.post('/api/employees', (req, res) => {
+    const data = req.body;
+    const sql = `INSERT INTO employee_register 
+    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    const values = [
+        data.name, data.phone, data.role, data.fatherName || null, 
+        data.emergency || null, data.aadhar || null, data.salary || 0, 
+        data.bankName || null, data.accountNumber || null, data.ifsc || null, 
+        data.joinDate || null, data.address || null, data.password, data.photo || null
+    ];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error("MySQL Error:", err.message);
+            return res.status(500).json({ success: false, message: "Database Error" });
+        }
+        
+        // result.insertId MySQL dwara di gayi unique auto-increment ID hai
+        res.status(200).json({ 
+            success: true, 
+            message: "Employee Registered!", 
+            userId: result.insertId, // Yeh aapki Unique User ID hai
+            password: data.password 
+        });
+    });
+});
+
+
+// 🚀 DELETE EMPLOYEE API
+app.delete('/api/employees/:id', (req, res) => {
+    const id = req.params.id;
+
+    const sql = "DELETE FROM employee_register WHERE id = ?";
+
+    db.query(sql, [id], (err, result) => {
+        if (err) {
+            console.error("DB Delete Error:", err);
+            return res.status(500).json({ success: false, message: "Database Error: " + err.message });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "Employee not found." });
+        }
+
+        res.json({ success: true, message: "Employee deleted successfully!" });
+    });
+});
+//////////////////////////////////////////////////
 
 
 
 
-
-
-
-
-
-// EMPLOYEE LIST API
+// EMPLOYEE LIST API - Sahi table name 'employee_register' use karein
+// server.js mein ise check karein
 app.get("/api/employees", async (req, res) => {
-  const db = require("./db");
-
   try {
-    const [rows] = await db.query("SELECT * FROM employees ORDER BY id DESC");
+    // Sahi table 'employee_register' use karein
+    const [rows] = await db.query("SELECT * FROM employee_register ORDER BY id DESC");
     res.json({ success: true, employees: rows });
   } catch (err) {
-    console.error("Fetch Employee Error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-app.get("/api/users/status/:id", async (req, res) => {
-  const db = require("./db");
-  const userId = req.params.id;
+app.get("/api/users/session",(req,res)=>{
+  return res.json({ login:false });
+});
 
-  try {
-    const [rows] = await db.query(
-      "SELECT employee_id, name, role FROM admins WHERE employee_id = ?",
-      [userId]
-    );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
 
-    res.json({
-      success: true,
-      user: rows[0],
-      status: "active"
+
+
+
+
+
+// 1. Selected Date ki attendance fetch karne ka route
+app.get('/api/attendance/:date', (req, res) => {
+    const selectedDate = req.params.date;
+    const sql = "SELECT * FROM attendance WHERE date = ?";
+    
+    db.query(sql, [selectedDate], (err, result) => {
+        if (err) {
+            console.error("Fetch Error:", err);
+            return res.status(500).json({ success: false, message: err.message });
+        }
+        res.status(200).json(result); // Ye frontend ko data bhejega
     });
+});
 
-  } catch (err) {
-    console.error("Status Check Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-})
+// 2. Attendance mark karne ka route
+app.post('/api/attendance', (req, res) => {
+    const { employee_id, date, status } = req.body;
 
+    // ON DUPLICATE KEY UPDATE: Agar hazri pehle se hai toh update hogi, nahi toh nayi banegi
+    const sql = `INSERT INTO attendance (employee_id, date, status) 
+                 VALUES (?, ?, ?) 
+                 ON DUPLICATE KEY UPDATE status = VALUES(status)`;
+
+    db.query(sql, [employee_id, date, status], (err, result) => {
+        if (err) {
+            console.error("Post Error:", err);
+            return res.status(500).json({ success: false, message: err.message });
+        }
+        res.status(200).json({ success: true, message: "Attendance Marked!" });
+    });
+});

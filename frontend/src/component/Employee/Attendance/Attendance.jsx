@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // Axios import kiya
+import axios from 'axios';
 import './Attendanc.css';
 import Loader from '../../Core_Component/Loader/Loader';
 
 const Attendance = ({ role }) => {
-  // Role checking (Case insensitive)
   const userRole = role?.toLowerCase();
   const isAuthorized = userRole === "admin" || userRole === "accountant" || userRole === "manager";
 
@@ -13,21 +12,21 @@ const Attendance = ({ role }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [submitting, setSubmitting] = useState(null); // Track which row is being updated
 
-  // ID mask helper
   const maskID = (id) => {
     if (!id) return "---";
     const strID = id.toString();
-    if (strID.length <= 4) return strID;
-    return "XXXX" + strID.slice(-4);
+    return strID.length <= 4 ? strID : "XXXX" + strID.slice(-4);
   };
 
-  // --- 1. Fetch All Employees (MySQL) ---
+  // --- 1. Fetch All Employees ---
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const res = await axios.get("http://localhost:5000/api/employees");
-        setEmployees(res.data);
+        // Ensure data is an array
+        setEmployees(Array.isArray(res.data.employees) ? res.data.employees : (res.data || []));
       } catch (err) {
         console.error("Error fetching employees:", err);
       } finally {
@@ -37,16 +36,21 @@ const Attendance = ({ role }) => {
     fetchEmployees();
   }, []);
 
-  // --- 2. Fetch Attendance for Selected Date (MySQL) ---
+  // --- 2. Fetch Attendance for Selected Date ---
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
         const res = await axios.get(`http://localhost:5000/api/attendance/${date}`);
-        // Data ko ek object mein convert karna taaki UI par lookup easy ho: { empId: {status: 'Present'} }
+        console.log(res,"http://localhost:5000/api/attendance");
+        
         const attObj = {};
-        res.data.forEach(item => {
-          attObj[item.employee_id] = item;
-        });
+        // Backend should return array of attendance records for that day
+        const data = res.data.attendance || res.data;
+        if (Array.isArray(data)) {
+          data.forEach(item => {
+            attObj[item.employee_id] = item;
+          });
+        }
         setAttendance(attObj);
       } catch (err) {
         console.error("Error fetching attendance:", err);
@@ -55,13 +59,14 @@ const Attendance = ({ role }) => {
     fetchAttendance();
   }, [date]);
 
-  // --- 3. Mark Attendance (MySQL) ---
+  // --- 3. Mark Attendance ---
   const markAttendance = async (empId, status) => {
     if (!isAuthorized) {
       alert("Aapko attendance mark karne ki permission nahi hai.");
       return;
     }
 
+    setSubmitting(empId); // Disable buttons for this row while processing
     try {
       const response = await axios.post("http://localhost:5000/api/attendance", {
         employee_id: empId,
@@ -70,14 +75,16 @@ const Attendance = ({ role }) => {
       });
 
       if (response.data.success) {
-        // UI ko turant update karne ke liye local state update karein
+        // Update local state immediately
         setAttendance(prev => ({
           ...prev,
-          [empId]: { status: status }
+          [empId]: { ...prev[empId], status: status }
         }));
       }
     } catch (err) {
       alert("Error: " + (err.response?.data?.message || err.message));
+    } finally {
+      setSubmitting(null);
     }
   };
 
@@ -85,9 +92,11 @@ const Attendance = ({ role }) => {
     const searchTerm = search.toLowerCase();
     return (
       emp.name?.toLowerCase().includes(searchTerm) || 
-      emp.username?.toString().includes(searchTerm) // 'username' hamari 8-digit ID hai
+      emp.id?.toString().includes(searchTerm) ||
+      emp.username?.toString().includes(searchTerm)
     );
   });
+// Nayi Temporary Line (sirf check karne ke liye):
 
   if (loading) return <Loader />;
 
@@ -97,14 +106,14 @@ const Attendance = ({ role }) => {
         <div className="table-header-row">
           <div>
             <h2 className="table-title">DAILY ATTENDANCE</h2>
-            <p style={{fontSize: '12px', color: '#666', margin: 0}}>
+            <p className={`status-info ${isAuthorized ? 'text-blue' : 'text-red'}`}>
               {isAuthorized 
                 ? "Hazri lagane ke liye P, A, ya H dabayein" 
                 : "⚠️ View Only: Access Restricted."}
             </p>
           </div>
           
-          <div className="btn-group-row" style={{gap: '12px'}}>
+          <div className="filters-group">
             <input 
               type="text" 
               placeholder="Search Name or ID..." 
@@ -114,7 +123,7 @@ const Attendance = ({ role }) => {
             />
             <input 
               type="date" 
-              className="table-search-box" 
+              className="table-search-box date-picker" 
               value={date} 
               max={new Date().toISOString().split('T')[0]} 
               onChange={(e) => setDate(e.target.value)} 
@@ -134,38 +143,65 @@ const Attendance = ({ role }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map((emp) => {
-                const currentStatus = attendance[emp.id]?.status;
-                
-                return (
-                  <tr key={emp.id}>
-                    <td style={{fontWeight: 'bold', color: '#2563eb'}}>
-                      {emp.username ? maskID(emp.username) : 'NEW'}
-                    </td>
-                    <td>
-                      <div className="emp-profile-circle">
-                        {emp.photo ? <img src={emp.photo} alt="profile" /> : <div className="placeholder-avatar">{emp.name?.charAt(0)}</div>}
-                      </div>
-                    </td>
-                    <td className="cust-name-cell">
-                      <div style={{fontWeight: '600'}}>{emp.name}</div>
-                      <div style={{fontSize: '11px', color: '#888'}}>{emp.role}</div>
-                    </td>
-                    <td>
-                      <span className={`status-badge-pill ${currentStatus === 'Present' ? 'success-bg' : currentStatus === 'Absent' ? 'null-bg' : 'warning-bg'}`}>
-                        {currentStatus || 'Pending'}
-                      </span>
-                    </td>
-                    <td className="action-btns-cell" style={{textAlign: 'center'}}>
-                      <div className="btn-group-row" style={{justifyContent: 'center', gap: '8px'}}>
-                        <button className={`save-btn-ui ${currentStatus === 'Present' ? 'active-p' : ''}`} onClick={() => markAttendance(emp.id, 'Present')} disabled={!isAuthorized}>P</button>
-                        <button className={`row-delete-btn ${currentStatus === 'Absent' ? 'active-a' : ''}`} onClick={() => markAttendance(emp.id, 'Absent')} disabled={!isAuthorized}>A</button>
-                        <button className={`ledger-btn-ui ${currentStatus === 'Half-Day' ? 'active-h' : ''}`} onClick={() => markAttendance(emp.id, 'Half-Day')} disabled={!isAuthorized}>H</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredEmployees.length > 0 ? (
+                filteredEmployees.map((emp) => {
+               
+                  
+                  const currentStatus = attendance[emp.id]?.status;
+                  const isRowSubmitting = submitting === emp.id;
+                  
+                  return (
+                    <tr key={emp.id} className={isRowSubmitting ? "row-processing" : ""}>
+                      <td className="emp-id-cell">
+                        {emp.username ? maskID(emp.username) : (emp.id || 'NEW')}
+                      </td>
+                      <td>
+                        <div className="emp-profile-circle">
+                          {emp.photo ? 
+                            <img src={emp.photo} alt="profile" /> : 
+                            <div className="placeholder-avatar">{emp.name?.charAt(0).toUpperCase()}</div>
+                          }
+                        </div>
+                      </td>
+                      <td className="cust-name-cell">
+                        <div className="emp-name-text">{emp.name}</div>
+                        <div className="emp-role-text">{emp.role}</div>
+                      </td>
+                      <td>
+                        <span className={`status-badge-pill ${
+                          currentStatus === 'Present' ? 'success-bg' : 
+                          currentStatus === 'Absent' ? 'null-bg' : 
+                          currentStatus === 'Half-Day' ? 'warning-bg' : 'pending-bg'}`}>
+                          {currentStatus || 'Not Marked'}
+                        </span>
+                      </td>
+                      <td className="action-btns-cell">
+                        <div className="attendance-btn-group">
+                          <button 
+                            className={`att-btn p-btn ${currentStatus === 'Present' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.id, 'Present')} 
+                            disabled={!isAuthorized || isRowSubmitting}
+                          >P</button>
+                          <button 
+                            className={`att-btn a-btn ${currentStatus === 'Absent' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.id, 'Absent')} 
+                            disabled={!isAuthorized || isRowSubmitting}
+                          >A</button>
+                          <button 
+                            className={`att-btn h-btn ${currentStatus === 'Half-Day' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.id, 'Half-Day')} 
+                            disabled={!isAuthorized || isRowSubmitting}
+                          >H</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="5" className="no-data-cell">No employees found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

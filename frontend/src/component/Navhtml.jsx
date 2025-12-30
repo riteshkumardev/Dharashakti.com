@@ -25,7 +25,8 @@ export default function Navbar({ user, setUser }) {
 
     const checkSessionStatus = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/users/session-check/${user.id}`);
+        const response = await axios.get(`http://localhost:5000/api/users/session");
+`);
         
         
         // Agar backend se mili session ID match nahi karti
