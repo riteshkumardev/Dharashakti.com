@@ -37,7 +37,9 @@ function App() {
     // Har 30 second mein server se check karega ki user blocked toh nahi hai
     const checkUserStatus = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/users/status/${user.id}`);
+        const res = await axios.get(`http://localhost:5000/api/users/status/${user.empId}`);
+       
+
         
         if (res.data.isBlocked) {
           alert("🚫 Your account is deactivated by Admin.");

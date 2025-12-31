@@ -19,22 +19,44 @@
 }
 
 /* 🔴 Absent waale digits ka text color white */
-.cal-absent {
-  background-color: #ef4444 !important; 
-  color: white !important; /* Red background par white text */
+.attendance-btn-group .att-btn {
+  padding: 8px 14px !important;
   border-radius: 8px !important;
+  font-weight: bold !important;
+  border: none !important;
+  cursor: pointer !important;
+  margin: 0 4px !important;
+  font-size: 15px !important;
+  transition: 0.2s !important;
+  color: #fff !important;
 }
 
-/* 🔵 Aaj ki date (Today) ka highlight hataane ya badalne ke liye */
-.react-calendar__tile--now {
-  background: #f1f5f9 !important;
-  border: 1px solid #3b82f6 !important;
-  color: #3b82f6 !important;
+/* Present = Green */
+.attendance-btnp-group .p-btn {
+  background-color: #22c55e !important;
+}
+.attendance-btn-group .p-btn.active {
+  background-color: #16a34a !important;
 }
 
-/* 🖱️ Hover effect ko clean karne ke liye */
-.react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
-  background-color: #e2e8f0 !important;
-  border-radius: 30px;
+/* Absent = Red */
+.attendance-btn-group .a-btn {
+  background-color: #ef4444 !important;
+}
+.attendance-btna-group .a-btn.active {
+  background-color: #dc2626 !important;
+}
+
+/* Half-Day = Blue */
+.attendance-btn-group .h-btn {
+  background-color: #41a320 !important;
+}
+.attendance-btnh-group .h-btn.active {
+  background-color: hsl(65, 94%, 50%) !important;
+}
+
+/* Disabled */
+.attendance-btn-group .att-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
 }

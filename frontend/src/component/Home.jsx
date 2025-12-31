@@ -49,7 +49,7 @@ const Home = ({ user }) => {
       <div className="floating-profile-card">
         <div className="mini-info">
           <h4>{user?.name || "User Name"}</h4>
-          <p className="emp-id-tag">ID: {maskID(user?.username || user?.employeeId)}</p>
+          <p className="emp-id-tag">ID: {maskID(user?.username || user?.empId)}</p>
           <span className="badge">{user?.role || 'Staff'}</span>
         </div>
         <div className="avatar-box">

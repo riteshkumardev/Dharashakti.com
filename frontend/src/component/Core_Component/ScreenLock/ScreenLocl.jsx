@@ -1,21 +1,33 @@
 import React, { useState } from "react";
 import "./ScreenLock.css";
+import axios from "axios";
+
 
 const ScreenLock = ({ user, setIsLocked }) => {
   const [passInput, setPassInput] = useState("");
   const [error, setError] = useState(false);
+const handleUnlock = async () => {
+  if (!passInput) return;
 
-  const handleUnlock = () => {
-    // 🔐 User ke password se match karenge
-    if (passInput === user.password) {
+  try {
+    const res = await axios.post("http://localhost:5000/api/verify-lock", {
+      empId: user.empId,
+      password: passInput
+    });
+
+    if (res.data.success) {
       setIsLocked(false);
       setError(false);
     } else {
       setError(true);
       setPassInput("");
-      alert("❌ Galat Password! Kripya sahi password dalein.");
+      alert("❌ Galat password! Sahi password dalein.");
     }
-  };
+
+  } catch (e) {
+    alert("⚠️ Server error, try again.");
+  }
+};
 
   return (
     <div className="screen-lock-overlay">

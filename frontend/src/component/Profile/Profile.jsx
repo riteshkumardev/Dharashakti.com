@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios"; // Axios for MySQL
 import "./Profile.css";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,9 @@ export default function Profile({ user, setUser }) {
   // State Initialization
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
+
+  console.log(phone,"phone");
+  
   const [newPassword, setNewPassword] = useState("");
   const [photoURL, setPhotoURL] = useState(
     user?.photo || "https://i.imgur.com/6VBx3io.png"
@@ -18,64 +21,79 @@ export default function Profile({ user, setUser }) {
   
   // ⏳ Feedback States
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+ const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: "",
+  severity: "success"
+});
 
   const navigate = useNavigate();
 
   // 🔔 Snackbar Helper
-  const showMsg = (msg, type = "success") => {
-    setSnackbar({ open: true, message: msg, severity: type });
-  };
+
+
+
+const showMsg = (message, severity = "success") => {
+  setSnackbar({
+    open: true,
+    message,
+    severity
+  });
+};
+
 
   /* ================= UPDATE PROFILE (NAME & PHONE) ================= */
-  const updateProfile = async () => {
-    if (!user?.id) return showMsg("User ID not found!", "error");
-    
-    try {
-      setLoading(true);
-      const res = await axios.put(`http://localhost:5000/api/profile/update/${user.id}`, {
-        name: name,
-        phone: phone,
-      });
+const updateProfile = async () => {
+  if (!user?.empId) return showMsg("⚠️ User ID not found!", "error");
 
-      if (res.data.success) {
-        const updatedUser = { ...user, name, phone };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        showMsg("✅ Profile updated successfully!", "success");
-      }
-    } catch (e) {
-      showMsg("❌ Update failed: " + (e.response?.data?.message || e.message), "error");
-    } finally {
-      setLoading(false);
+  setLoading(true);
+
+  try {
+    const { data } = await axios.put(
+      `http://localhost:5000/api/profile/update/${user.empId}`,
+      { name, phone }
+    );
+
+    if (data.success) {
+      const updatedUser = { ...user, name, phone };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+
+      showMsg("✅ Profile Updated Successfully!", "success"); // <-- Snackbar NOW works
+    } else {
+      showMsg("⚠️ Something went wrong!", "error");
     }
-  };
+
+  } catch (err) {
+    showMsg("❌ Update Failed: " + (err.response?.data?.message || err.message), "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   /* ================= CHANGE PASSWORD ================= */
-  const changePassword = async () => {
-    if (newPassword.length < 4) {
-      return showMsg("Password must be at least 4 characters", "warning");
-    }
-    
-    try {
-      setLoading(true);
-      const res = await axios.put(`http://localhost:5000/api/profile/password/${user.id}`, {
-        password: newPassword,
-      });
+const changePassword = async () => {
+  if (newPassword.length < 4)
+    return showMsg("⚠️ Password must be at least 4 characters", "warning");
 
-      if (res.data.success) {
-        const updatedUser = { ...user, password: newPassword };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        showMsg("🔐 Password updated!", "success");
-        setNewPassword("");
-      }
-    } catch (e) {
-      showMsg("❌ Password update failed", "error");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const res = await axios.put(`http://localhost:5000/api/profile/password/${user.empId}`, {
+      password: newPassword
+    });
+
+    if (res.data.success) {
+      setNewPassword("");
+      showMsg("🔐 Password changed successfully!", "success");
     }
-  };
+  } catch (e) {
+    showMsg("❌ Password update failed!", "error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   /* ================= IMAGE UPLOAD (Base64 to MySQL) ================= */
   const handleImageChange = async (e) => {
@@ -88,8 +106,10 @@ export default function Profile({ user, setUser }) {
       const base64Photo = reader.result;
       try {
         setLoading(true);
-        const res = await axios.put(`http://localhost:5000/api/profile/photo/${user.id}`, {
+        const res = await axios.put(`http://localhost:5000/api/profile/photo/${user.empId}`, {
           photo: base64Photo,
+          
+          
         });
 
         if (res.data.success) {
@@ -122,6 +142,8 @@ export default function Profile({ user, setUser }) {
       navigate("/login");
     }
   };
+  console.log(user,"user");
+  
 
   if (loading) return <Loader />;
 
@@ -140,7 +162,7 @@ export default function Profile({ user, setUser }) {
 
         <div className="field">
           <label>Login ID (Username)</label>
-          <input value={user?.username || ""} disabled style={{ background: 'rgba(255,255,255,0.05)' }} />
+          <input value={user?.empId || ""} disabled style={{ background: 'rgba(255,255,255,0.05)' }} />
         </div>
 
         <div className="field">
@@ -179,12 +201,16 @@ export default function Profile({ user, setUser }) {
         </button>
       </div>
 
-      <CustomSnackbar 
-        open={snackbar.open} 
-        message={snackbar.message} 
-        severity={snackbar.severity} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })} 
-      />
+    <CustomSnackbar
+  key={snackbar.open ? Date.now() : "closed"}
+  open={snackbar.open}
+  message={snackbar.message}
+  severity={snackbar.severity}
+  onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+/>
+
     </div>
   );
 }
+
+

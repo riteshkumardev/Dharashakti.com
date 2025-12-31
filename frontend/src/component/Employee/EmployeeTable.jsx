@@ -150,7 +150,7 @@ const handleDelete = async (id) => {
                   <td>{index + 1}</td>
                   
                   <td style={{fontWeight: 'bold', color: '#2563eb'}}>
-                    {emp.id}
+                    {emp.empId}
                   </td>
 
                   <td>

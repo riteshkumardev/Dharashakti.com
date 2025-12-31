@@ -6,7 +6,7 @@ import CustomSnackbar from "./Core_Component/Snackbar/CustomSnackbar";
 import "../App.css";
 
 function Login({ setUser }) {
-  const [employeeId, setEmployeeId] = useState("");
+  const [empId, setEmpId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, total: 0 });
@@ -36,40 +36,43 @@ function Login({ setUser }) {
     e.preventDefault();
 
     if (parseInt(userCaptcha) !== captcha.total) {
-      showMsg("❌ Invalid Captcha. Please solve again.", "error");
+      showMsg("❌ Invalid Captcha. Try again!", "error");
       refreshCaptcha();
       return;
     }
 
-    const cleanId = employeeId.trim();
+    const cleanEmp = empId.trim();
+    if (!cleanEmp) return showMsg("⚠️ Employee ID Required!");
+
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/login', {
-        username: cleanId, 
+      // 🔥 Backend ke hisaab se field fix ki
+      const response = await axios.post("http://localhost:5000/api/login", {
+        empId: cleanEmp,  // IMPORTANT FIX
         password: password
-      }, { timeout: 10000 }); // 10 Sec timeout
+      }, { timeout: 10000 });
 
       if (response.data.success) {
         const userData = response.data.user;
-        const sessionId = userData.currentSessionId; // Backend synced ID
 
-        setTimeout(() => {
-          const finalUser = {
-            ...userData,
-            currentSessionId: sessionId,
-            loginTime: new Date().toISOString()
-          };
+        const finalUser = {
+          ...userData,
+          currentSessionId: userData.currentSessionId,
+          loginTime: new Date().toISOString(),
+        };
 
-          localStorage.setItem("user", JSON.stringify(finalUser));
-          setUser(finalUser);
-          setLoading(false); 
-          navigate("/", { replace: true });
-        }, 800);
+        localStorage.setItem("user", JSON.stringify(finalUser));
+        setUser(finalUser);
+        setLoading(false);
+
+        showMsg("✅ Login Successful!", "success");
+        navigate("/", { replace: true });
       }
+
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Connection Error. Is Backend running?";
-      showMsg("❌ " + errorMsg, "error");
+      const errorMsg = err.response?.data?.message || "⚠️ Server Connection Error";
+      showMsg(errorMsg, "error");
       refreshCaptcha();
       setLoading(false);
     }
@@ -81,15 +84,14 @@ function Login({ setUser }) {
     <div className="login-box">
       <h2>Dharashakti Login</h2>
       <form onSubmit={handleSubmit}>
+        
         <div className="input-group">
           <label>Employee ID</label>
           <input
             type="text"
-            placeholder="Enter 8-Digit ID"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value)}
-            maxLength="8"
-            inputMode="numeric"
+            placeholder="Enter Employee ID"
+            value={empId}
+            onChange={(e) => setEmpId(e.target.value)}
             required
             disabled={loading}
           />
@@ -107,51 +109,41 @@ function Login({ setUser }) {
           />
         </div>
 
-        <div className="captcha-container" style={{ marginBottom: "15px" }}>
+        <div className="captcha-container">
           <label>Verify Captcha</label>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <div style={{
               background: "#eee",
-              padding: "4px 8px",
-              borderRadius: "4px",
+              padding: "6px 12px",
+              borderRadius: "6px",
               fontWeight: "bold",
-              width: "80%",
-              fontSize: "1.2rem",
-              userSelect: "none",
-              color: "#333"
+              fontSize: "1.2rem"
             }}>
               {captcha.num1} + {captcha.num2} = ?
             </div>
-            <button 
-              type="button" 
-              onClick={refreshCaptcha} 
-              disabled={loading}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", width: "20%" }}
-            >
-              🔄
-            </button>
+            <button type="button" onClick={refreshCaptcha} disabled={loading}>🔄</button>
           </div>
           <input
             type="number"
-            placeholder="Result"
+            placeholder="Answer"
             value={userCaptcha}
             onChange={(e) => setUserCaptcha(e.target.value)}
-            required
             disabled={loading}
-            style={{ marginTop: "10px" }}
+            required
           />
         </div>
 
-        <button type="submit" disabled={loading} style={{ marginTop: "10px" }}>
-          {loading ? "Verifying Access..." : "Login Now"}
+        <button type="submit" disabled={loading}>
+          {loading ? "Verifying..." : "Login Now"}
         </button>
+
       </form>
 
-      <CustomSnackbar 
-        open={snackbar.open} 
-        message={snackbar.message} 
-        severity={snackbar.severity} 
-        onClose={() => setSnackbar({ ...snackbar, open: false })} 
+      <CustomSnackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       />
     </div>
   );

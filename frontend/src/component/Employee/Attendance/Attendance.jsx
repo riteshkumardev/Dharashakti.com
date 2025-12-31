@@ -73,6 +73,7 @@ const Attendance = ({ role }) => {
         date: date,
         status: status
       });
+console.log(response,"response");
 
       if (response.data.success) {
         // Update local state immediately
@@ -92,7 +93,7 @@ const Attendance = ({ role }) => {
     const searchTerm = search.toLowerCase();
     return (
       emp.name?.toLowerCase().includes(searchTerm) || 
-      emp.id?.toString().includes(searchTerm) ||
+      emp.empId?.toString().includes(searchTerm) ||
       emp.username?.toString().includes(searchTerm)
     );
   });
@@ -147,13 +148,13 @@ const Attendance = ({ role }) => {
                 filteredEmployees.map((emp) => {
                
                   
-                  const currentStatus = attendance[emp.id]?.status;
-                  const isRowSubmitting = submitting === emp.id;
+                  const currentStatus = attendance[emp.empId]?.status;
+                  const isRowSubmitting = submitting === emp.empId;
                   
                   return (
-                    <tr key={emp.id} className={isRowSubmitting ? "row-processing" : ""}>
+                    <tr key={emp.empId} className={isRowSubmitting ? "row-processing" : ""}>
                       <td className="emp-id-cell">
-                        {emp.username ? maskID(emp.username) : (emp.id || 'NEW')}
+                        {emp.username ? maskID(emp.username) : (emp.empId || 'NEW')}
                       </td>
                       <td>
                         <div className="emp-profile-circle">
@@ -178,18 +179,18 @@ const Attendance = ({ role }) => {
                       <td className="action-btns-cell">
                         <div className="attendance-btn-group">
                           <button 
-                            className={`att-btn p-btn ${currentStatus === 'Present' ? 'active' : ''}`} 
-                            onClick={() => markAttendance(emp.id, 'Present')} 
+                            className={`attendance-btn p-btn ${currentStatus === 'Present' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.empId, 'Present')} 
                             disabled={!isAuthorized || isRowSubmitting}
                           >P</button>
                           <button 
-                            className={`att-btn a-btn ${currentStatus === 'Absent' ? 'active' : ''}`} 
-                            onClick={() => markAttendance(emp.id, 'Absent')} 
+                            className={`attendance-btna a-btn ${currentStatus === 'Absent' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.empId, 'Absent')} 
                             disabled={!isAuthorized || isRowSubmitting}
                           >A</button>
                           <button 
-                            className={`att-btn h-btn ${currentStatus === 'Half-Day' ? 'active' : ''}`} 
-                            onClick={() => markAttendance(emp.id, 'Half-Day')} 
+                            className={`attendance-btn h-btn ${currentStatus === 'Half-Day' ? 'active' : ''}`} 
+                            onClick={() => markAttendance(emp.empId, 'Half-Day')} 
                             disabled={!isAuthorized || isRowSubmitting}
                           >H</button>
                         </div>

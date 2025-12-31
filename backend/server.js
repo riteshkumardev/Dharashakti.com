@@ -15,52 +15,72 @@ app.get('/', (req, res) => {
 
 /* ========================= LOGIN ========================= */
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { empId, password } = req.body;
     const serverSessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
 
     try {
+        // 👇 Correct Table + Correct Fields
         const [rows] = await db.query(
-            'SELECT id, name, role, password, isBlocked FROM employees WHERE id = ? AND password = ? LIMIT 1',
-            [username, password]
+            `SELECT empId, name, role, password, isBlocked 
+             FROM employee_register 
+             WHERE empId = ? AND password = ? LIMIT 1`,
+            [empId, password]
         );
 
+        // ❌ Invalid Login (Wrong ID or Password)
         if (!rows || rows.length === 0) {
-            return res.status(401).json({ success: false, message: "❌ Invalid ID or Password" });
+            return res.status(401).json({ success: false, message: "❌ Invalid EmpID or Password" });
         }
 
         const user = rows[0];
 
+        // 🚫 Blocked Account Check
         if (user.isBlocked === 1) {
             return res.status(403).json({ success: false, message: "🚫 Account Blocked by Admin" });
         }
 
-        await db.query('UPDATE employees SET currentSessionId = ? WHERE id = ?', [serverSessionId, user.id]);
+        // 🟢 Save Session
+        await db.query(
+            "UPDATE employee_register SET currentSessionId = ? WHERE empId = ?",
+            [serverSessionId, user.empId]
+        );
+
+        // Sensitive data remove
         delete user.password;
 
-        res.json({
+        return res.status(200).json({
             success: true,
             message: "✅ Login Successful",
-            user: { ...user, currentSessionId: serverSessionId, loginTime: new Date().toISOString() }
+            user: {
+                ...user,
+                currentSessionId: serverSessionId,
+                loginTime: new Date().toISOString()
+            }
         });
 
     } catch (err) {
+        console.error("Login Error:", err);
         return res.status(500).json({ success: false, message: "⚠ Server / Database Error" });
     }
 });
 
 
+
 /* ========================= SESSION CHECK ========================= */
-app.get('/api/users/session-check/:id', async (req, res) => {
-  const { id } = req.params;
+app.get('/api/users/status/:empId', async (req, res) => {
+  const { empId } = req.params;
   try {
-    const [rows] = await db.query('SELECT currentSessionId, isBlocked FROM employees WHERE id = ?', [id]);
+    const [rows] = await db.query(
+      'SELECT currentSessionId, isBlocked FROM employee_register WHERE empId = ?',
+      [empId]
+    );
 
     if (rows.length === 0) return res.status(404).json({ success: false, message: "User not found" });
 
     res.json({
       success: true,
-      currentSessionId: rows[0].currentSessionId,
-      isBlocked: rows[0].isBlocked === 1
+      isBlocked: rows[0].isBlocked === 1,
+      currentSessionId: rows[0].currentSessionId
     });
 
   } catch (error) {
@@ -70,25 +90,27 @@ app.get('/api/users/session-check/:id', async (req, res) => {
 
 
 /* ========================= DASHBOARD STATS ========================= */
+/* ========================= DASHBOARD STATS ========================= */
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
     const [sales] = await db.query("SELECT COUNT(*) AS totalSales FROM sales");
     const [due] = await db.query("SELECT SUM(payment_due) AS totalDue FROM sales");
     const [products] = await db.query("SELECT COUNT(*) AS totalProducts FROM products");
-    const [employees] = await db.query("SELECT COUNT(*) AS totalEmployees FROM employees");
+    const [employees] = await db.query("SELECT COUNT(*) AS totalEmployees FROM employee_register");
 
     res.json({
       success: true,
-      totalSales: sales[0].totalSales || 0,
-      totalDue: due[0].totalDue || 0,
-      totalProducts: products[0].totalProducts || 0,
-      totalEmployees: employees[0].totalEmployees || 0,
+      totalSales: sales[0]?.totalSales || 0,
+      totalDue: due[0]?.totalDue || 0,
+      totalProducts: products[0]?.totalProducts || 0,
+      totalEmployees: employees[0]?.totalEmployees || 0,
     });
 
   } catch (error) {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });
+
 
 
 /* ========================= SALES ========================= */
@@ -309,68 +331,43 @@ app.listen(PORT, () => {
 });
 
 
-app.post('/api/employees', (req, res) => {
-    const data = req.body;
-    const sql = `INSERT INTO employee_register 
-    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-    const values = [
-        data.name, data.phone, data.role, data.fatherName || null, 
-        data.emergency || null, data.aadhar || null, data.salary || 0, 
-        data.bankName || null, data.accountNumber || null, data.ifsc || null, 
-        data.joinDate || null, data.address || null, data.password, data.photo || null
-    ];
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error("Database Error:", err);
-            return res.status(500).json({ success: false, message: err.message });
-        }
-        
-        // Yahan 'result.insertId' wahi unique ID hai jo MySQL ne generate ki hai
-        return res.status(200).json({ 
-            success: true, 
-            message: "Employee added successfully!", 
-            userId: result.insertId, // Yeh aapki unique ID hai
-            password: data.password  // Jo password aapne dala tha
-        });
-    });
-});
-
-
 // server.js mein ye confirm karein
 app.use(express.json({ limit: '50mb' })); // Limit ko thoda aur badha dein 50mb safe hai
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
 app.post("/api/employees", (req, res) => {
     const data = req.body;
 
     const sql = `INSERT INTO employee_register 
-    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (empId, name, fatherName, phone, emergency, aadhar, address, role, joinDate, salary, bankName, accountNumber, ifsc, photo, password)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
-        data.name, data.phone, data.role, data.fatherName,
-        data.emergency, data.aadhar, data.salary,
-        data.bankName, data.accountNumber, data.ifsc,
-        data.joinDate, data.address, data.password, data.photo
+        data.empId, data.name, data.fatherName,
+        data.phone, data.emergency, data.aadhar,
+        data.address, data.role, data.joinDate,
+        data.salary, data.bankName, data.accountNumber,
+        data.ifsc, data.photo || null, data.password
     ];
 
     db.query(sql, values, (err, result) => {
         if (err) {
             console.log("MySQL Error:", err);
+
+            if (err.code === 'ER_DUP_ENTRY') {
+                return res.status(400).json({ success: false, message: "⚠️ Duplicate empId or phone number!" });
+            }
+
             return res.status(500).json({ success: false, message: err.message });
         }
 
-        // 📌 IMPORTANT: Return & stop here
         return res.status(201).json({
             success: true,
             message: "🎉 Employee Registered Successfully!",
-            id: result.insertId
+            insertedEmpId: data.empId
         });
     });
 });
+
 
 
 // 🚀 UPDATE EMPLOYEE API
@@ -411,34 +408,7 @@ app.put('/api/employees/:id', (req, res) => {
 });
 
 // 🚀 REGISTER API (With Unique ID Return)
-app.post('/api/employees', (req, res) => {
-    const data = req.body;
-    const sql = `INSERT INTO employee_register 
-    (name, phone, role, fatherName, emergency, aadhar, salary, bankName, accountNumber, ifsc, joinDate, address, password, photo) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    const values = [
-        data.name, data.phone, data.role, data.fatherName || null, 
-        data.emergency || null, data.aadhar || null, data.salary || 0, 
-        data.bankName || null, data.accountNumber || null, data.ifsc || null, 
-        data.joinDate || null, data.address || null, data.password, data.photo || null
-    ];
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error("MySQL Error:", err.message);
-            return res.status(500).json({ success: false, message: "Database Error" });
-        }
-        
-        // result.insertId MySQL dwara di gayi unique auto-increment ID hai
-        res.status(200).json({ 
-            success: true, 
-            message: "Employee Registered!", 
-            userId: result.insertId, // Yeh aapki Unique User ID hai
-            password: data.password 
-        });
-    });
-});
 
 
 // 🚀 DELETE EMPLOYEE API
@@ -517,4 +487,212 @@ app.post('/api/attendance', (req, res) => {
         }
         res.status(200).json({ success: true, message: "Attendance Marked!" });
     });
+});
+
+
+////////////// profile photo ////////////////
+app.put("/api/profile/update/:empId", async (req, res) => {
+  const { empId } = req.params;
+  const { name, phone } = req.body;
+
+  try {
+    const [update] = await db.query(
+      "UPDATE employee_register SET name=?, phone=? WHERE empId=?",
+      [name, phone, empId]
+    );
+
+    if (update.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Ye hi Snackbar chalu karega 👇
+    return res.status(200).json({
+      success: true,
+      message: "Profile Updated Successfully!"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
+});
+
+
+
+
+
+/* ================= CHANGE PASSWORD ================= */
+app.put('/api/profile/password/:empId', async (req, res) => {
+  const { empId } = req.params;
+  const { password } = req.body;
+
+  if (!password || password.length < 4) {
+    return res.status(400).json({ success: false, message: "Password must be 4+ characters" });
+  }
+
+  try {
+    const [result] = await db.query(
+      "UPDATE employee_register SET password = ? WHERE empId = ?",
+      [password, empId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "User not found!" });
+    }
+
+    return res.json({
+      success: true,
+      message: "🔐 Password updated successfully!"
+    });
+
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Server Error", error: err.message });
+  }
+});
+
+app.post("/api/logout/:empId", async (req, res) => {
+  const { empId } = req.params;
+
+  try {
+    await db.query(
+      "UPDATE employee_register SET currentSessionId = NULL WHERE empId = ?",
+      [empId]
+    );
+
+    res.json({ success: true, message: "🔒 Logged out successfully!" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+});
+app.get("/api/profile/:empId", async (req, res) => {
+  const { empId } = req.params;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT empId, name, phone, role, photo FROM employee_register WHERE empId = ? LIMIT 1",
+      [empId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, user: rows[0] });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server Error", error: err.message });
+  }
+});
+app.post("/api/verify-lock", async (req, res) => {
+  const { empId, password } = req.body;
+
+  try {
+    const [rows] = await db.query(
+      "SELECT password FROM employee_register WHERE empId = ? LIMIT 1",
+      [empId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Password match check
+    if (rows[0].password === password) {
+      return res.json({ success: true });
+    }
+
+    return res.json({ success: false, message: "Wrong password" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+//////////////////////////////master/////////////////////
+app.put("/api/admin/reset-password", async (req, res) => {
+  const { empId, newPass, adminName } = req.body;
+
+  if (!empId || !newPass) 
+    return res.status(400).json({ success: false, message: "Missing fields" });
+
+  try {
+    await db.query("UPDATE employee_register SET password = ? WHERE empId = ?", [newPass, empId]);
+
+    await db.query("INSERT INTO logs (admin_name, action_detail) VALUES (?, ?)",
+      [adminName, `Password Reset for EMP: ${empId}`]);
+
+    res.json({ success: true, message: "Password updated" });
+  } 
+  catch (error) {
+    res.status(500).json({ success: false, message: "Error updating password" });
+  }
+});
+
+
+
+
+// ================== EMPLOYEE LIST ==================
+
+// ================= GET SYSTEM LOGS =================
+app.get("/api/logs", async (req, res) => {
+  try {
+    const [logs] = await db.query("SELECT * FROM system_logs ORDER BY id DESC LIMIT 50");
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Logs Fetch Error" });
+  }
+});
+
+app.get('/api/employees', async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT * FROM employee_register");
+
+    return res.json(rows); // 👈 JSON fix — Important
+  } catch (err) {
+    res.status(500).json({ error: "Database error", details: err });
+  }
+});
+
+
+
+// ================= RESET PASSWORD =================
+
+// ================= ADMIN - UPDATE SYSTEM =================
+// 🔧 UPDATE ROLE / BLOCK / UNBLOCK
+app.put("/api/admin/update-system", async (req, res) => {
+  const { empId, field, value, adminName, targetName } = req.body;
+
+  if (!empId || !field) {
+    return res.status(400).json({ success: false, message: "Missing Fields" });
+  }
+
+  try {
+    // Update field in DB
+    await db.query(
+      `UPDATE employee_register SET ${field} = ? WHERE empId = ?`,
+      [value, empId]
+    );
+
+    // Save logs
+    await db.query(
+      "INSERT INTO system_logs (admin_name, action_detail) VALUES (?, ?)",
+      [adminName, `${field.toUpperCase()} updated for ${targetName}`]
+    );
+
+    return res.json({ success: true, message: "Update Success" });
+
+  } catch (err) {
+    console.log("UPDATE ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
 });

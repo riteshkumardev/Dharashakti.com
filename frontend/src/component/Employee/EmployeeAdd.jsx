@@ -9,24 +9,26 @@ const EmployeeAdd = ({ onEntrySaved }) => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
-  const initialFormState = {
-    name: "",
-    fatherName: "",
-    phone: "",
-    emergency: "",
-    aadhar: "",
-    address: "",
-    role: "Worker",
-    joinDate: new Date().toISOString().split("T")[0],
-    salary: "",
-    bankName: "",
-    accountNumber: "",
-    ifsc: "",
-    photo: "",
-    password: ""
-  };
-
+const initialFormState = {
+  empId: "EMP" + Date.now(),  // 👈 Auto Unique ID Generate
+  name: "",
+  fatherName: "",
+  phone: "",
+  emergency: "",
+  aadhar: "",
+  address: "",
+  role: "Worker",
+  joinDate: new Date().toISOString().split("T")[0],
+  salary: "",
+  bankName: "",
+  accountNumber: "",
+  ifsc: "",
+  photo: "",
+  password: ""
+};
   const [formData, setFormData] = useState(initialFormState);
+  console.log(formData,"formData");
+  
 
   const showMsg = (msg, type = "success") =>
     setSnackbar({ open: true, message: msg, severity: type });
@@ -119,6 +121,10 @@ const handleSubmit = async (e) => {
           <label>Employee Name *</label>
           <input name="name" value={formData.name} onChange={handleChange} required />
         </div>
+        <div className="input-group">
+  <label>Employee ID (Auto Generate)</label>
+  <input name="empId" value={formData.empId} readOnly style={{background:"#eee", fontWeight:"bold"}} />
+</div>
 
         <div className="input-group">
           <label>Father's Name</label>
